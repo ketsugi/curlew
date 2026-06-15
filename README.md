@@ -21,10 +21,9 @@ We'd respect that.
 
 ### Homebrew (macOS & Linux)
 
-> Coming soon — once [`ketsugi/homebrew-tap`](https://github.com/ketsugi/homebrew-tap) is set up:
-> ```bash
-> brew install ketsugi/tap/curlew
-> ```
+```bash
+brew install ketsugi/tap/curlew
+```
 
 ### Direct download
 
