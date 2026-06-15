@@ -76,6 +76,15 @@ These exist to support automated testing. They are not part of the public interf
 | `CURLEW_CLAUDE_CMD` | Override the claude binary path (tests point this at a mock stub) |
 | `CURLEW_MODEL` | Override the Claude model name (default: `sonnet`) |
 
+## Contributing
+
+All changes go through pull requests — direct pushes to `main` are blocked.
+
+1. Create a branch: `git checkout -b my-feature`
+2. Make changes, run `bats test/` locally
+3. Push and open a PR: `git push -u origin my-feature`
+4. CI runs automatically; merge once green
+
 ## Releasing
 
 1. Bump `VERSION` in `bin/curlew`
