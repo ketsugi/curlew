@@ -56,6 +56,26 @@ You can also point it at a local file:
 curlew ./some-script.sh
 ```
 
+## Shell hook (transparent interception)
+
+Instead of remembering to type `curlew` every time, you can install a shell hook that automatically intercepts `curl ... | bash` commands:
+
+```bash
+# zsh (add to ~/.zshrc)
+eval "$(curlew --hook zsh)"
+
+# bash (add to ~/.bashrc)
+eval "$(curlew --hook bash)"
+```
+
+With the hook active, any `curl | bash`, `curl | sh`, `wget | bash`, or `wget | sh` command you type will be intercepted and routed through curlew for inspection before execution.
+
+To bypass the hook for a single command:
+
+```bash
+CURLEW_BYPASS=1 curl -fsSL https://example.com/install.sh | bash
+```
+
 ## Optional dependencies
 
 | Dependency | Purpose | Install |
