@@ -51,6 +51,42 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+# --- zsh hook interception (fires the real preexec function) ---
+# Stub curlew with a marker and stub kill so the test shell is not signalled.
+
+@test "should intercept and route curl|bash when zsh hook fires" {
+  command -v zsh >/dev/null || skip "zsh not installed"
+  run zsh -c "
+    eval \"\$(bash '$CURLEW' --hook zsh)\"
+    curlew() { print -r -- \"STUB_HIT:\$*\"; }
+    kill() { :; }
+    __curlew_preexec 'curl -fsSL https://example.com/install.sh | bash'
+  "
+  [[ "$output" == *"STUB_HIT:https://example.com/install.sh"* ]]
+}
+
+@test "should not intercept when sudo in pipe target (zsh runtime)" {
+  command -v zsh >/dev/null || skip "zsh not installed"
+  run zsh -c "
+    eval \"\$(bash '$CURLEW' --hook zsh)\"
+    curlew() { print -r -- STUB_HIT; }
+    kill() { :; }
+    __curlew_preexec 'curl -fsSL https://example.com | sudo bash'
+  "
+  [[ "$output" != *STUB_HIT* ]]
+}
+
+@test "should honor inline CURLEW_BYPASS=1 prefix (zsh runtime)" {
+  command -v zsh >/dev/null || skip "zsh not installed"
+  run zsh -c "
+    eval \"\$(bash '$CURLEW' --hook zsh)\"
+    curlew() { print -r -- STUB_HIT; }
+    kill() { :; }
+    __curlew_preexec 'CURLEW_BYPASS=1 curl -fsSL https://example.com/install.sh | bash'
+  "
+  [[ "$output" != *STUB_HIT* ]]
+}
+
 # --- Bypass detection ---
 
 @test "should include CURLEW_BYPASS in zsh hook output" {

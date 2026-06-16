@@ -54,17 +54,26 @@ __curlew_emit_hook_zsh() {
 # Bypass with: CURLEW_BYPASS=1 curl ... | bash
 
 __curlew_preexec() {
-  # Allow explicit bypass (env var or inline prefix anywhere in leading assignments)
+  # Allow explicit bypass via env var.
   [[ "${CURLEW_BYPASS:-}" == "1" ]] && return
-  [[ "$1" =~ (^|[[:space:]])CURLEW_BYPASS=1[[:space:]] ]] && return
 
   local cmd="$1"
 
-  # Skip commands with sudo in the pipe target — let users explicitly run sudo curlew
-  [[ "$cmd" =~ \|[[:space:]]*sudo ]] && return
+  # All match patterns are held in variables. zsh mishandles | in an inline
+  # [[ =~ ]] regex two ways: an unquoted | is a parse error, and a
+  # backslash-escaped \| is stripped to a bare | — an empty alternation that
+  # matches everything (so an inline sudo check would skip every command).
+  # Expanding the pattern from a variable sidesteps both.
+
+  # Allow explicit bypass via inline prefix (CURLEW_BYPASS=1 in leading assignments).
+  local bypass_re='(^|[[:space:]])CURLEW_BYPASS=1[[:space:]]'
+  [[ "$cmd" =~ $bypass_re ]] && return
+
+  # Skip commands with sudo in the pipe target — let users explicitly run sudo curlew.
+  local sudo_re='\|[[:space:]]*sudo'
+  [[ "$cmd" =~ $sudo_re ]] && return
 
   # Detect: curl/wget ... | bash/sh (single pipe only, anchored to avoid substring matches)
-  # Hold the regex in a variable: zsh parse-errors on an unquoted | inside [[ =~ ]].
   local re='(^|[[:space:]])(curl|wget)[[:space:]]+[^|]+\|[[:space:]]*(ba)?sh([[:space:]]|$)'
   if [[ "$cmd" =~ $re ]]; then
     # Extract URL from the download command (portion before the pipe)
