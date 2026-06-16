@@ -70,6 +70,8 @@ eval "$(curlew --hook bash)"
 
 With the hook active, any `curl | bash`, `curl | sh`, `wget | bash`, or `wget | sh` command you type will be intercepted and routed through curlew for inspection before execution.
 
+Note: the hook intercepts pipe-to-shell only. Process substitution (`bash <(curl ...)`), eval forms (`eval "$(curl ...)"`), and two-step downloads (`curl -o file && bash file`) are not covered.
+
 To bypass the hook for a single command:
 
 ```bash
