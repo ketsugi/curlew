@@ -27,3 +27,12 @@ jobs:
             dist/curlew
             dist/curlew.sha256
           generate_release_notes: true
+
+      - name: Bump Homebrew tap
+        env:
+          GH_TOKEN: ${{ secrets.TAP_DISPATCH_TOKEN }}
+        run: |
+          gh workflow run bump-formula.yml \
+            -f formula=curlew \
+            -f version="${GITHUB_REF##*/}" \
+            -R ketsugi/homebrew-tap
