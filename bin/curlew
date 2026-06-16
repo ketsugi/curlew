@@ -54,17 +54,17 @@ __curlew_emit_hook_zsh() {
 # Bypass with: CURLEW_BYPASS=1 curl ... | bash
 
 __curlew_preexec() {
-  # Allow explicit bypass (env var or inline prefix)
+  # Allow explicit bypass (env var or inline prefix anywhere in leading assignments)
   [[ "${CURLEW_BYPASS:-}" == "1" ]] && return
-  [[ "$1" =~ ^CURLEW_BYPASS=1[[:space:]] ]] && return
+  [[ "$1" =~ (^|[[:space:]])CURLEW_BYPASS=1[[:space:]] ]] && return
 
   local cmd="$1"
 
   # Skip commands with sudo in the pipe target — let users explicitly run sudo curlew
   [[ "$cmd" =~ \|[[:space:]]*sudo ]] && return
 
-  # Detect: curl/wget ... | bash/sh (single pipe only, no intermediate commands)
-  if [[ "$cmd" =~ (curl|wget)[[:space:]]+[^|]+\|[[:space:]]*(ba)?sh ]]; then
+  # Detect: curl/wget ... | bash/sh (single pipe only, anchored to avoid substring matches)
+  if [[ "$cmd" =~ (^|[[:space:]])(curl|wget)[[:space:]]+[^|]+\|[[:space:]]*(ba)?sh([[:space:]]|$) ]]; then
     # Extract URL from the download command (portion before the pipe)
     local dl_cmd="${cmd%%|*}"
     local url
@@ -92,9 +92,9 @@ __curlew_emit_hook_bash() {
 # Requires: bash 4.4+ (for extdebug trap return value support)
 
 __curlew_trap_debug() {
-  # Allow explicit bypass (env var or inline prefix)
+  # Allow explicit bypass (env var or inline prefix anywhere in leading assignments)
   [[ "${CURLEW_BYPASS:-}" == "1" ]] && return 0
-  [[ "$BASH_COMMAND" =~ ^CURLEW_BYPASS=1[[:space:]] ]] && return 0
+  [[ "$BASH_COMMAND" =~ (^|[[:space:]])CURLEW_BYPASS=1[[:space:]] ]] && return 0
 
   local cmd="$BASH_COMMAND"
 
@@ -104,8 +104,8 @@ __curlew_trap_debug() {
   # Skip commands with sudo in the pipe target — let users explicitly run sudo curlew
   [[ "$cmd" =~ \|[[:space:]]*sudo ]] && return 0
 
-  # Detect: curl/wget ... | bash/sh (single pipe only, no intermediate commands)
-  if [[ "$cmd" =~ (curl|wget)[[:space:]]+[^|]+\|[[:space:]]*(ba)?sh ]]; then
+  # Detect: curl/wget ... | bash/sh (single pipe only, anchored to avoid substring matches)
+  if [[ "$cmd" =~ (^|[[:space:]])(curl|wget)[[:space:]]+[^|]+\|[[:space:]]*(ba)?sh([[:space:]]|$) ]]; then
     # Extract URL from the download command (portion before the pipe)
     local dl_cmd="${cmd%%|*}"
     local url

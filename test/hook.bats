@@ -6,33 +6,33 @@ setup() {
   CURLEW="$CURLEW_ROOT/bin/curlew"
 
   # Shared regex — must match the pattern used in the hook code.
-  # If the hook regex changes, update it here (single source of truth for tests).
-  HOOK_REGEX='(curl|wget)[[:space:]]+[^|]+\|[[:space:]]*(ba)?sh'
+  # If the hook regex changes, update it here.
+  HOOK_REGEX='(^|[[:space:]])(curl|wget)[[:space:]]+[^|]+\|[[:space:]]*(ba)?sh([[:space:]]|$)'
 }
 
 # --- curlew --hook flag ---
 
-@test "--hook zsh outputs zsh hook code" {
+@test "should output zsh preexec hook when --hook zsh" {
   run bash "$CURLEW" --hook zsh
   [ "$status" -eq 0 ]
   [[ "$output" == *"__curlew_preexec"* ]]
   [[ "$output" == *"add-zsh-hook"* ]]
 }
 
-@test "--hook bash outputs bash hook code" {
+@test "should output bash debug trap when --hook bash" {
   run bash "$CURLEW" --hook bash
   [ "$status" -eq 0 ]
   [[ "$output" == *"__curlew_trap_debug"* ]]
   [[ "$output" == *"extdebug"* ]]
 }
 
-@test "--hook with no argument fails" {
+@test "should fail when --hook given no argument" {
   run bash "$CURLEW" --hook
   [ "$status" -ne 0 ]
   [[ "$output" == *"requires an argument"* ]]
 }
 
-@test "--hook with unsupported shell fails" {
+@test "should fail when --hook given unsupported shell" {
   run bash "$CURLEW" --hook fish
   [ "$status" -ne 0 ]
   [[ "$output" == *"Unsupported shell"* ]]
@@ -40,87 +40,102 @@ setup() {
 
 # --- Bypass detection ---
 
-@test "zsh hook contains CURLEW_BYPASS check" {
+@test "should include CURLEW_BYPASS in zsh hook output" {
   run bash "$CURLEW" --hook zsh
   [[ "$output" == *'CURLEW_BYPASS'* ]]
 }
 
-@test "bash hook contains CURLEW_BYPASS check" {
+@test "should include CURLEW_BYPASS in bash hook output" {
   run bash "$CURLEW" --hook bash
   [[ "$output" == *'CURLEW_BYPASS'* ]]
 }
 
-@test "bypass prefix is detected in command string" {
+@test "should detect bypass when CURLEW_BYPASS=1 is first token" {
   cmd='CURLEW_BYPASS=1 curl -fsSL https://example.com/install.sh | bash'
-  [[ "$cmd" =~ ^CURLEW_BYPASS=1[[:space:]] ]]
+  [[ "$cmd" =~ (^|[[:space:]])CURLEW_BYPASS=1[[:space:]] ]]
+}
+
+@test "should detect bypass when CURLEW_BYPASS=1 is non-first env var" {
+  cmd='DEBUG=1 CURLEW_BYPASS=1 curl https://example.com | bash'
+  [[ "$cmd" =~ (^|[[:space:]])CURLEW_BYPASS=1[[:space:]] ]]
 }
 
 # --- Pattern matching (positive cases) ---
 
-@test "matches simple curl|bash" {
+@test "should match when simple curl piped to bash" {
   cmd='curl -fsSL https://example.com/install.sh | bash'
   [[ "$cmd" =~ $HOOK_REGEX ]]
 }
 
-@test "matches wget|sh" {
+@test "should match when wget piped to sh" {
   cmd='wget -O - https://example.com/setup.sh | sh'
   [[ "$cmd" =~ $HOOK_REGEX ]]
 }
 
-@test "matches curl|bash with flags" {
+@test "should match when curl has many flags piped to sh" {
   cmd='curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh'
   [[ "$cmd" =~ $HOOK_REGEX ]]
 }
 
-# --- Pattern matching (negative cases — must NOT match) ---
+@test "should match when bash has trailing args" {
+  cmd='curl https://example.com/install.sh | bash -s -- arg'
+  [[ "$cmd" =~ $HOOK_REGEX ]]
+}
 
-@test "does NOT match curl|grep" {
+# --- Pattern matching (negative cases) ---
+
+@test "should not match when curl pipes to grep" {
   cmd='curl -fsSL https://example.com/data.json | grep foo'
   ! [[ "$cmd" =~ $HOOK_REGEX ]]
 }
 
-@test "does NOT match curl without pipe" {
+@test "should not match when curl has no pipe" {
   cmd='curl -fsSL https://example.com/file.tar.gz -o file.tar.gz'
   ! [[ "$cmd" =~ $HOOK_REGEX ]]
 }
 
-@test "does NOT match multi-pipe (curl|tee|bash)" {
+@test "should not match when multiple pipes present (curl|tee|bash)" {
   cmd='curl https://example.com | tee /tmp/log | bash'
-  # The first segment "curl https://example.com " contains no pipe, matches [^|]+,
-  # then | tee /tmp/log | bash — the regex requires (ba)?sh immediately after the pipe.
-  # "tee /tmp/log | bash" doesn't match (curl|wget) so the overall regex shouldn't match
-  # at the start. Let's verify the actual behavior:
-  ! [[ "$cmd" =~ $HOOK_REGEX ]] || {
-    # If it does match, the [^|]+ consumed "curl https://example.com " and
-    # the \| matched the FIRST pipe. Then (ba)?sh needs to follow — but "tee" follows.
-    # So this should NOT match. If it does, the regex needs further tightening.
-    false
-  }
+  ! [[ "$cmd" =~ $HOOK_REGEX ]] || false
+}
+
+@test "should not match when command is xcurl (substring of curl)" {
+  cmd='xcurl https://example.com/install.sh | bash'
+  ! [[ "$cmd" =~ $HOOK_REGEX ]]
+}
+
+@test "should not match when pipe target is bashfoo (trailing chars)" {
+  cmd='curl https://example.com/install.sh | bashfoo'
+  ! [[ "$cmd" =~ $HOOK_REGEX ]]
+}
+
+@test "should not match when pipe target is shazam (trailing chars on sh)" {
+  cmd='curl https://example.com/install.sh | shazam'
+  ! [[ "$cmd" =~ $HOOK_REGEX ]]
 }
 
 # --- Sudo handling ---
 
-@test "does NOT match curl|sudo bash (sudo in pipe target is skipped)" {
+@test "should skip interception when sudo in pipe target" {
   cmd='curl -fsSL https://example.com/install.sh | sudo bash'
-  # The hook skips commands with sudo in the pipe target before regex check
   [[ "$cmd" =~ \|[[:space:]]*sudo ]]
 }
 
 # --- URL extraction ---
 
-@test "extracts URL from curl command" {
+@test "should extract URL from curl command" {
   dl_cmd='curl -fsSL https://example.com/install.sh '
   url=$(printf '%s' "$dl_cmd" | grep -oE 'https?://[^[:space:]"'"'"')>;]+' | head -1)
   [ "$url" = "https://example.com/install.sh" ]
 }
 
-@test "extracts URL from wget command" {
+@test "should extract URL from wget command" {
   dl_cmd='wget -O - https://get.sdkman.io '
   url=$(printf '%s' "$dl_cmd" | grep -oE 'https?://[^[:space:]"'"'"')>;]+' | head -1)
   [ "$url" = "https://get.sdkman.io" ]
 }
 
-@test "excludes semicolons from extracted URL" {
+@test "should exclude semicolons from extracted URL" {
   dl_cmd='curl https://example.com/install.sh; echo done'
   url=$(printf '%s' "$dl_cmd" | grep -oE 'https?://[^[:space:]"'"'"')>;]+' | head -1)
   [ "$url" = "https://example.com/install.sh" ]
