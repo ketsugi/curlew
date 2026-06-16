@@ -4,7 +4,7 @@ set -euo pipefail
 # curlew: Inspect before you execute. A safe wrapper for curl|bash.
 # https://github.com/ketsugi/curlew
 
-readonly VERSION="0.2.0"
+readonly VERSION="0.2.2"
 readonly ANALYSIS_THRESHOLD=20  # lines above which AI analysis is auto-suggested
 readonly CLAUDE_MODEL="${CURLEW_MODEL:-sonnet}"
 readonly CLAUDE_CMD="${CURLEW_CLAUDE_CMD:-claude}"
