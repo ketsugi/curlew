@@ -17,6 +17,7 @@ curlew/
 ├── bin/curlew                    # main entrypoint
 ├── lib/curlew-lib.sh             # testable functions (sourced by bin/curlew)
 ├── scripts/build-dist.sh         # inlines lib into bin for a single-file release
+├── scripts/dev-shell.sh          # isolated shell with the in-repo hook loaded
 ├── test/
 │   ├── test_helper.bash          # bats test setup
 │   ├── curlew-lib.bats           # unit tests for lib functions
@@ -64,6 +65,23 @@ From the repo root:
 bin/curlew https://example.com/install.sh
 bin/curlew ./some-local-script.sh
 ```
+
+## Testing the shell hook locally
+
+The hook emitters (`curlew --hook zsh|bash`) are the trickiest part to verify, because the generated code runs in your live shell. Two layers:
+
+**Automated.** `bats test/` includes tests that eval the emitted hook in its target shell and fire the interception function directly — covering parse-cleanliness, `curl|bash` routing, sudo skip, and `CURLEW_BYPASS`. Run these before every push; they catch the shell-specific regex pitfalls that don't show up when you only match the pattern in bash.
+
+**Manual.** To type real `curl ... | bash` commands against your working copy:
+
+```bash
+scripts/dev-shell.sh        # zsh (default)
+scripts/dev-shell.sh bash
+```
+
+This launches an interactive shell with a temporary `ZDOTDIR`/rcfile that prepends `bin/` to `PATH` and loads the in-repo hook, isolated from your real shell config. Exit to leave; the temp files are cleaned up.
+
+Why the indirection: if you have curlew installed (e.g. via Homebrew), a naive `eval "$(curlew --hook zsh)"` in your real shell regenerates the hook from whatever `curlew` wins on `PATH` — usually the installed copy, not your working tree. The dev shell sidesteps that so you're always exercising local changes.
 
 ## How the lib sourcing works
 
