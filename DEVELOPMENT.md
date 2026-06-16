@@ -14,15 +14,20 @@ apt install bats         # Debian/Ubuntu
 
 ```
 curlew/
-├── bin/curlew              # main entrypoint
-├── lib/curlew-lib.sh       # testable functions (sourced by bin/curlew)
+├── bin/curlew                    # main entrypoint
+├── lib/curlew-lib.sh             # testable functions (sourced by bin/curlew)
+├── scripts/build-dist.sh         # inlines lib into bin for a single-file release
 ├── test/
-│   ├── test_helper.bash    # bats test setup
-│   └── curlew-lib.bats     # unit tests
+│   ├── test_helper.bash          # bats test setup
+│   ├── curlew-lib.bats           # unit tests for lib functions
+│   ├── curlew-integration.bats   # end-to-end flow tests
+│   └── hook.bats                 # shell-hook emitter tests
 ├── .github/workflows/
-│   └── release.yml         # tag-triggered GitHub Release
+│   ├── ci.yml                    # tests + dist smoke test on PR/push to main
+│   └── release.yml               # tag-triggered GitHub Release
+├── docs/decisions/               # architecture decision records (ADRs)
 ├── README.md
-├── DEVELOPMENT.md          # this file
+├── DEVELOPMENT.md                # this file
 └── LICENSE
 ```
 
@@ -37,6 +42,19 @@ Or a specific file:
 ```bash
 bats test/curlew-lib.bats
 ```
+
+CI (`.github/workflows/ci.yml`) runs `bats test/` on every PR and push to `main`, then builds the single-file dist artifact and smoke-tests it.
+
+## Building the dist artifact
+
+The release is a single self-contained file with `lib/curlew-lib.sh` inlined into `bin/curlew`:
+
+```bash
+scripts/build-dist.sh             # writes dist/curlew
+scripts/build-dist.sh /tmp/curlew # or a custom output path
+```
+
+`dist/` is gitignored — it's a build output, never committed. The lib stays separate in the repo so it remains unit-testable.
 
 ## Running curlew locally
 
