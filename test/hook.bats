@@ -38,6 +38,19 @@ setup() {
   [[ "$output" == *"Unsupported shell"* ]]
 }
 
+# --- Hook evaluates cleanly in its target shell ---
+
+@test "should parse cleanly when zsh hook is evaluated in zsh" {
+  command -v zsh >/dev/null || skip "zsh not installed"
+  run zsh -c "eval \"\$(bash '$CURLEW' --hook zsh)\""
+  [ "$status" -eq 0 ]
+}
+
+@test "should parse cleanly when bash hook is evaluated in bash" {
+  run bash -c "eval \"\$(bash '$CURLEW' --hook bash)\""
+  [ "$status" -eq 0 ]
+}
+
 # --- Bypass detection ---
 
 @test "should include CURLEW_BYPASS in zsh hook output" {

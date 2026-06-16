@@ -64,7 +64,9 @@ __curlew_preexec() {
   [[ "$cmd" =~ \|[[:space:]]*sudo ]] && return
 
   # Detect: curl/wget ... | bash/sh (single pipe only, anchored to avoid substring matches)
-  if [[ "$cmd" =~ (^|[[:space:]])(curl|wget)[[:space:]]+[^|]+\|[[:space:]]*(ba)?sh([[:space:]]|$) ]]; then
+  # Hold the regex in a variable: zsh parse-errors on an unquoted | inside [[ =~ ]].
+  local re='(^|[[:space:]])(curl|wget)[[:space:]]+[^|]+\|[[:space:]]*(ba)?sh([[:space:]]|$)'
+  if [[ "$cmd" =~ $re ]]; then
     # Extract URL from the download command (portion before the pipe)
     local dl_cmd="${cmd%%|*}"
     local url
