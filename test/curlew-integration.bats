@@ -59,6 +59,41 @@ teardown() {
   [ ! -f "$MOCK_CLAUDE_LOG" ]
 }
 
+# --- Analysis render width ---
+
+@test "should render AI analysis at full terminal width" {
+  command -v glow >/dev/null || skip "glow not installed (analysis falls back to cat)"
+  command -v script >/dev/null || skip "script (util-linux) not available for pty"
+
+  # Mock claude emits one long unwrapped line; glow reflows it to the width
+  # it is told. Without the -w fix glow caps the wrap at ~80 columns.
+  cat > "$TEST_TMPDIR/wide-claude" <<'MOCK'
+#!/bin/bash
+echo "This is a single long paragraph of prose with no embedded line breaks so that glow must reflow it to whatever wrap width it is given, which lets us confirm the analysis is no longer capped at the default eighty column width on a wide terminal."
+MOCK
+  chmod +x "$TEST_TMPDIR/wide-claude"
+  printf '#!/bin/bash\necho hi\n' > "$TEST_TMPDIR/s.sh"
+
+  # Drive curlew under a 160-col pty; PAGER=cat keeps capture deterministic.
+  cat > "$TEST_TMPDIR/run.sh" <<EOF
+export CURLEW_CLAUDE_CMD="$TEST_TMPDIR/wide-claude"
+export CURLEW_SKIP_TTY_CHECK=1
+export PAGER=cat
+stty cols 160
+printf 'nyn' | bash "$CURLEW" "$TEST_TMPDIR/s.sh"
+EOF
+
+  run script -qec "bash $TEST_TMPDIR/run.sh" /dev/null
+
+  # Widest rendered line, ANSI and CR stripped. Default 80-col wrap tops out
+  # near 80; the fix should push it well past that toward the 160-col tty.
+  local widest
+  widest=$(printf '%s\n' "$output" \
+    | sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g; s/\r$//' \
+    | awk '{ if (length > max) max = length } END { print max + 0 }')
+  [ "$widest" -gt 120 ]
+}
+
 # --- TTY enforcement ---
 
 @test "should reject non-interactive stdin without CURLEW_SKIP_TTY_CHECK" {
