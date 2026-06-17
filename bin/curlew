@@ -41,6 +41,17 @@ die() { printf '\033[1;31merror:\033[0m %s\n' "$1" >&2; exit 1; }
 info() { printf '\033[1;34m==>\033[0m %s\n' "$1"; }
 warn() { printf '\033[1;33mwarning:\033[0m %s\n' "$1"; }
 
+# Single-keypress yes/no prompt. Args: prompt-text, default(y|n).
+# Reads one character (no Enter needed); a bare Enter accepts the default.
+# Echoes the resolved choice (read -s suppresses it) and returns 0 for yes, 1 for no.
+confirm() {
+  local prompt="$1" default="$2" key
+  read -rsn1 -p "$prompt" key || true
+  [[ -n "$key" ]] || key="$default"
+  printf '%s\n' "$key"
+  [[ "$key" == [Yy] ]]
+}
+
 # --- Shell hook emitters ---
 # These output eval-able shell code for transparent curl|bash interception.
 # Usage: eval "$(curlew --hook zsh)" in ~/.zshrc
@@ -198,21 +209,17 @@ line_count=$(wc -l < "$tmpfile" | tr -d ' ')
 info "Script is $line_count lines"
 
 # --- Step 2: Visual inspection ---
-read -rp $'\033[1;33mOpen script in less for inspection? [Y/n]\033[0m ' do_inspect
-case "${do_inspect:-y}" in
-  [Yy]|[Yy][Ee][Ss])
-    less "$tmpfile" ;;
-  *)
-    info "Skipping visual inspection." ;;
-esac
+if confirm $'\033[1;33mOpen script in less for inspection? [Y/n]\033[0m ' y; then
+  less "$tmpfile"
+else
+  info "Skipping visual inspection."
+fi
 
 # --- Step 3: AI analysis ---
 if [[ "$line_count" -gt "$ANALYSIS_THRESHOLD" ]]; then
-  read -rp $'\033[1;33mScript is longer than '"$ANALYSIS_THRESHOLD"$' lines. Run AI analysis? [Y/n]\033[0m ' do_analyze
-  do_analyze="${do_analyze:-y}"
+  confirm $'\033[1;33mScript is longer than '"$ANALYSIS_THRESHOLD"$' lines. Run AI analysis? [Y/n]\033[0m ' y && do_analyze=y || do_analyze=n
 else
-  read -rp $'\033[1;33mRun AI analysis? [y/N]\033[0m ' do_analyze
-  do_analyze="${do_analyze:-n}"
+  confirm $'\033[1;33mRun AI analysis? [y/N]\033[0m ' n && do_analyze=y || do_analyze=n
 fi
 
 case "$do_analyze" in
@@ -269,20 +276,16 @@ esac
 
 # --- Step 4: Confirm before execution ---
 printf '\n'
-read -rp $'\033[1;33mExecute this script? [y/N]\033[0m ' answer
-case "$answer" in
-  [Yy]|[Yy][Ee][Ss])
-    info "Executing..."
-    # Honor the script's shebang if present; invoke interpreter directly for noexec /tmp compat
-    shebang=$(head -1 "$tmpfile")
-    if ! reason=$(validate_shebang "$shebang" 2>&1); then
-      die "$reason"
-    fi
-    read -ra interp <<< "$(get_interpreter "$shebang")"
-    "${interp[@]}" "$tmpfile"
-    ;;
-  *)
-    info "Aborted."
-    exit 0
-    ;;
-esac
+if confirm $'\033[1;33mExecute this script? [y/N]\033[0m ' n; then
+  info "Executing..."
+  # Honor the script's shebang if present; invoke interpreter directly for noexec /tmp compat
+  shebang=$(head -1 "$tmpfile")
+  if ! reason=$(validate_shebang "$shebang" 2>&1); then
+    die "$reason"
+  fi
+  read -ra interp <<< "$(get_interpreter "$shebang")"
+  "${interp[@]}" "$tmpfile"
+else
+  info "Aborted."
+  exit 0
+fi
