@@ -38,9 +38,10 @@ The hooks are heredoc'd shell code emitted by `curlew --hook {zsh,bash}` for `ev
 
 - `bin/curlew`, `lib/curlew-lib.sh`, and `scripts/*` all run under `set -euo pipefail`.
 - Optional dependencies (`claude`, `glow`, `openssl`) must degrade gracefully — guard every use with `command -v`.
-- AI analysis treats the script as untrusted input: the prompt instructs Claude to ignore embedded instructions, the content is fenced with a random sentinel, and `has_injection_patterns` blocks analysis unless `--force-analyze` is passed. Preserve these guards when touching the analysis path.
+- AI analysis treats the script as untrusted input: the prompt instructs the model to ignore embedded instructions, the content is fenced with a random sentinel, and `has_injection_patterns` blocks analysis unless `--force-analyze` is passed. These guards are backend-agnostic — preserve them when touching the analysis path.
+- The AI backend is pluggable via `resolve_ai_command` (in the lib): `CURLEW_AI` selects a preset (`claude`/`ollama`), `CURLEW_MODEL` picks the model, and `CURLEW_AI_CMD` overrides with a raw command. The resolved command receives the prompt on stdin and writes markdown to stdout. A missing/misconfigured backend warns and skips — it never aborts the inspect/execute flow.
 - Execution honors the script's shebang via `validate_shebang` (which rejects multi-arg/unsafe shebangs) and `get_interpreter`, invoking the interpreter directly rather than piping — this keeps it working on `noexec` /tmp.
-- Test-only env vars (not public API): `CURLEW_LIB`, `CURLEW_SKIP_TTY_CHECK`, `CURLEW_CLAUDE_CMD`, `CURLEW_MODEL`.
+- Public AI-config env vars: `CURLEW_AI`, `CURLEW_MODEL`, `CURLEW_AI_CMD`. Test-only env vars (not public API): `CURLEW_LIB`, `CURLEW_SKIP_TTY_CHECK`, `CURLEW_CLAUDE_CMD`.
 
 ## Workflow
 

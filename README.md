@@ -47,7 +47,7 @@ curlew will:
 
 1. Download the script and verify it's actually a text-based script (not a binary)
 2. Show the line count and offer to open it in `less` for inspection
-3. Offer AI-powered analysis via [Claude](https://docs.anthropic.com/en/docs/claude-code) (auto-suggested for scripts over 20 lines)
+3. Offer AI-powered analysis via [Claude](https://docs.anthropic.com/en/docs/claude-code) by default, or any backend you configure (auto-suggested for scripts over 20 lines)
 4. Ask for explicit confirmation before executing
 
 You can also point it at a local file:
@@ -55,6 +55,27 @@ You can also point it at a local file:
 ```bash
 curlew ./some-script.sh
 ```
+
+## Choosing the AI backend
+
+The AI analysis defaults to the `claude` CLI, but you can point curlew at any tool via environment variables:
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `CURLEW_AI` | Backend preset: `claude` or `ollama` | `claude` |
+| `CURLEW_MODEL` | Model name passed to the preset | `sonnet` (claude); required for `ollama` |
+| `CURLEW_AI_CMD` | Raw command override; wins over any preset | — |
+
+```bash
+# Local model via ollama
+CURLEW_AI=ollama CURLEW_MODEL=qwen2.5-coder:7b curlew https://example.com/install.sh
+
+# Any other tool: the command receives the prompt on stdin and must
+# write the analysis (markdown) to stdout.
+CURLEW_AI_CMD="aichat -m openai:gpt-4o" curlew https://example.com/install.sh
+```
+
+The backend reads the analysis prompt on stdin and writes markdown to stdout. If the configured backend is missing or misconfigured, curlew warns and skips analysis — it never blocks inspection or execution.
 
 ## Shell hook (transparent interception)
 
