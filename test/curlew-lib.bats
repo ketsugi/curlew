@@ -178,3 +178,47 @@ teardown() {
   run get_interpreter "#!/bin/bash -e"
   [ "$output" = "/bin/bash -e" ]
 }
+
+# --- resolve_ai_command ---
+
+@test "should default to the claude backend with the sonnet model" {
+  CURLEW_AI= CURLEW_MODEL= CURLEW_AI_CMD= CURLEW_CLAUDE_CMD= run resolve_ai_command
+  [ "$status" -eq 0 ]
+  [ "$output" = "claude --model sonnet --print" ]
+}
+
+@test "should honor CURLEW_MODEL for the claude backend" {
+  CURLEW_AI=claude CURLEW_MODEL=opus CURLEW_AI_CMD= CURLEW_CLAUDE_CMD= run resolve_ai_command
+  [ "$status" -eq 0 ]
+  [ "$output" = "claude --model opus --print" ]
+}
+
+@test "should honor CURLEW_CLAUDE_CMD as the claude binary" {
+  CURLEW_AI=claude CURLEW_MODEL= CURLEW_AI_CMD= CURLEW_CLAUDE_CMD=/opt/mock-claude run resolve_ai_command
+  [ "$status" -eq 0 ]
+  [ "$output" = "/opt/mock-claude --model sonnet --print" ]
+}
+
+@test "should build an ollama command from CURLEW_MODEL" {
+  CURLEW_AI=ollama CURLEW_MODEL=llama3 CURLEW_AI_CMD= run resolve_ai_command
+  [ "$status" -eq 0 ]
+  [ "$output" = "ollama run llama3" ]
+}
+
+@test "should reject the ollama backend without a model" {
+  CURLEW_AI=ollama CURLEW_MODEL= CURLEW_AI_CMD= run resolve_ai_command
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"CURLEW_MODEL"* ]]
+}
+
+@test "should let CURLEW_AI_CMD override any preset" {
+  CURLEW_AI=claude CURLEW_MODEL=opus CURLEW_AI_CMD="my-llm --chat" run resolve_ai_command
+  [ "$status" -eq 0 ]
+  [ "$output" = "my-llm --chat" ]
+}
+
+@test "should reject an unknown backend" {
+  CURLEW_AI=bogus CURLEW_MODEL= CURLEW_AI_CMD= run resolve_ai_command
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"bogus"* ]]
+}

@@ -88,6 +88,43 @@ validate_shebang() {
   return 0
 }
 
+# Resolve the AI analysis backend to a command string from environment config.
+# Reads:
+#   CURLEW_AI         backend preset: "claude" (default) or "ollama"
+#   CURLEW_MODEL      model name (preset-specific; required for ollama)
+#   CURLEW_AI_CMD     raw command override; wins over any preset
+#   CURLEW_CLAUDE_CMD claude binary override (used by the claude preset)
+# The resolved command is run with the analysis prompt on stdin and must write
+# the analysis to stdout. Prints the command on success; on invalid config,
+# prints the reason to stderr and returns non-zero.
+resolve_ai_command() {
+  local override="${CURLEW_AI_CMD:-}"
+  if [[ -n "$override" ]]; then
+    printf '%s\n' "$override"
+    return 0
+  fi
+
+  local ai="${CURLEW_AI:-claude}"
+  local model="${CURLEW_MODEL:-}"
+
+  case "$ai" in
+    claude)
+      printf '%s --model %s --print\n' "${CURLEW_CLAUDE_CMD:-claude}" "${model:-sonnet}"
+      ;;
+    ollama)
+      if [[ -z "$model" ]]; then
+        echo "CURLEW_AI=ollama requires CURLEW_MODEL (e.g. CURLEW_MODEL=llama3.2)" >&2
+        return 1
+      fi
+      printf 'ollama run %s\n' "$model"
+      ;;
+    *)
+      echo "Unknown CURLEW_AI backend: $ai (supported: claude, ollama; or set CURLEW_AI_CMD)" >&2
+      return 1
+      ;;
+  esac
+}
+
 # Get the interpreter command array for a given shebang.
 # Prints the interpreter command to stdout (space-separated).
 # If no shebang, prints "bash".

@@ -59,6 +59,40 @@ teardown() {
   [ ! -f "$MOCK_CLAUDE_LOG" ]
 }
 
+# --- Configurable AI backend ---
+
+@test "should drive analysis through CURLEW_AI_CMD, receiving the prompt on stdin" {
+  cat > "$TEST_TMPDIR/mock-ai" <<MOCK
+#!/bin/bash
+touch "$TEST_TMPDIR/ai-called"
+read -r -n1 _first && touch "$TEST_TMPDIR/ai-got-stdin"
+echo "Mock backend analysis."
+MOCK
+  chmod +x "$TEST_TMPDIR/mock-ai"
+  printf '#!/bin/bash\necho hi\n' > "$TEST_TMPDIR/s.sh"
+  run bash -c 'printf "nyn" | CURLEW_AI_CMD="$TEST_TMPDIR/mock-ai" bash "$CURLEW" "$TEST_TMPDIR/s.sh"'
+  [ -f "$TEST_TMPDIR/ai-called" ]        # override backend ran
+  [ -f "$TEST_TMPDIR/ai-got-stdin" ]     # prompt delivered on stdin
+  [ ! -f "$MOCK_CLAUDE_LOG" ]            # CURLEW_AI_CMD wins over CURLEW_CLAUDE_CMD
+}
+
+@test "should degrade gracefully when CURLEW_AI is an unknown backend" {
+  printf '#!/bin/bash\necho hi\n' > "$TEST_TMPDIR/s.sh"
+  run bash -c 'printf "nyn" | CURLEW_AI=bogus bash "$CURLEW" "$TEST_TMPDIR/s.sh"'
+  [ "$status" -eq 0 ]                     # reaches the execute prompt, not aborted mid-flow
+  [[ "$output" == *"Unknown CURLEW_AI backend: bogus"* ]]
+  [[ "$output" == *"Skipping AI analysis"* ]]
+  [ ! -f "$MOCK_CLAUDE_LOG" ]
+}
+
+@test "should warn and skip when the configured backend is not installed" {
+  printf '#!/bin/bash\necho hi\n' > "$TEST_TMPDIR/s.sh"
+  run bash -c 'printf "nyn" | CURLEW_AI_CMD="curlew-no-such-tool-xyz --go" bash "$CURLEW" "$TEST_TMPDIR/s.sh"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"AI backend not found: curlew-no-such-tool-xyz"* ]]
+  [ ! -f "$MOCK_CLAUDE_LOG" ]
+}
+
 # --- Analysis render width ---
 
 @test "should render AI analysis at full terminal width" {
