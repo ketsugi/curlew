@@ -239,6 +239,13 @@ case "$do_analyze" in
 
       if [[ "$skip_analysis" != true ]]; then
         info "Running AI analysis..."
+        # glow's style wraps prose at ~80 cols regardless of terminal size, so
+        # pass the real width explicitly. Read it from the controlling tty via
+        # stty (tput/$COLUMNS can't see it from inside a command substitution).
+        # The group's 2>/dev/null swallows the open failure when there's no tty
+        # (CI, pipes); || true keeps a failed read from tripping set -e.
+        render_cols=$({ stty size </dev/tty | awk '{print $2}'; } 2>/dev/null || true)
+        [[ "$render_cols" =~ ^[0-9]+$ && "$render_cols" -gt 0 ]] || render_cols=100
         printf '\n\033[1;35m--- Claude Analysis ---\033[0m\n\n'
         if command -v openssl &>/dev/null; then
           sentinel="SCRIPT_$(openssl rand -hex 8)"
@@ -260,7 +267,7 @@ Be direct and specific. Flag anything suspicious. Format your response in markdo
 Script contents (delimited by ${sentinel}_BEGIN/${sentinel}_END):
 ${sentinel}_BEGIN
 $(cat "$tmpfile")
-${sentinel}_END" | if command -v glow &>/dev/null; then glow -; else cat; fi
+${sentinel}_END" | if command -v glow &>/dev/null; then PAGER="${PAGER:-less -FRX}" glow -w "$render_cols" -p -; else cat; fi
         printf '\n\033[1;35m--- End Analysis ---\033[0m\n'
         printf '\033[2m(Note: AI analysis is advisory and can be fooled by adversarial scripts. It supplements, not replaces, manual inspection.)\033[0m\n\n'
       fi
