@@ -1,6 +1,6 @@
 # ADR-007: Stay bash (for now)
 
-**Status:** Decided (2026-06-15)
+**Status:** Superseded by [ADR-008](008-rewrite-go.md) (2026-06-17)
 
 ## Context
 

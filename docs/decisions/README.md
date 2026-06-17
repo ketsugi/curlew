@@ -10,4 +10,5 @@ Design decisions made during curlew's development. Each record captures the cont
 - [ADR-004: Static analysis feasibility](004-static-analysis.md)
 - [ADR-005: Configuration system design](005-configuration-system.md)
 - [ADR-006: Shell hook implementation](006-shell-hook.md)
-- [ADR-007: Bash vs compiled language](007-bash-vs-compiled.md)
+- [ADR-007: Bash vs compiled language](007-bash-vs-compiled.md) — superseded by ADR-008
+- [ADR-008: Rewrite curlew in Go](008-rewrite-go.md)
