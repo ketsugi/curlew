@@ -32,8 +32,13 @@ jobs:
 
       - name: Merge coverage profiles
         run: |
+          echo "::group::Coverage file diagnostics"
+          echo "unit.cov: $(wc -l < unit.cov) lines"
+          echo "e2e.cov: $(wc -l < e2e.cov 2>/dev/null || echo 'MISSING')"
+          echo "::endgroup::"
           echo "mode: set" > coverage.txt
           grep -hv "^mode:" unit.cov e2e.cov >> coverage.txt 2>/dev/null || true
+          echo "coverage.txt: $(wc -l < coverage.txt) lines"
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac  # v5.5.5
