@@ -3,6 +3,7 @@ package run
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -29,18 +30,16 @@ func confirm(prompt string, defaultYes bool) (bool, error) {
 	}
 	defer term.Restore(fd, oldState)
 
-	buf := make([]byte, 1)
-	n, err := os.Stdin.Read(buf)
+	key, ok := readKeypress(os.Stdin)
 
 	// Restore before printing newline
 	term.Restore(fd, oldState)
 
-	if err != nil || n == 0 {
+	if !ok {
 		fmt.Fprintln(os.Stderr)
 		return defaultYes, nil
 	}
 
-	key := buf[0]
 	switch key {
 	case '\r', '\n':
 		if defaultYes {
@@ -88,6 +87,20 @@ func confirmFallback(defaultYes bool) (bool, error) {
 		fmt.Fprintln(os.Stderr, string(buf[0]))
 		return defaultYes, nil
 	}
+}
+
+// readKeypress reads one logical keypress from r and returns its first byte.
+// Reading into a small buffer (rather than a single byte) drains the trailing
+// bytes of a multi-byte sequence — e.g. an arrow key arrives as ESC '[' 'A' in
+// raw mode — so they don't leak into the next prompt or back to the shell. ok
+// is false when nothing was read.
+func readKeypress(r io.Reader) (key byte, ok bool) {
+	buf := make([]byte, 8)
+	n, _ := r.Read(buf)
+	if n == 0 {
+		return 0, false
+	}
+	return buf[0], true
 }
 
 // termWidth returns the current terminal width, or fallback if it can't be
