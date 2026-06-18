@@ -18,18 +18,31 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Build artifact
-        run: scripts/build-dist.sh dist/curlew
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          platforms=(
+            "darwin/amd64"
+            "darwin/arm64"
+            "linux/amd64"
+            "linux/arm64"
+          )
+          for platform in "${platforms[@]}"; do
+            GOOS="${platform%/*}"
+            GOARCH="${platform#*/}"
+            output="dist/curlew-${GOOS}-${GOARCH}"
+            GOOS="$GOOS" GOARCH="$GOARCH" go build -o "$output" ./cmd/curlew/
+          done
 
-      - name: Generate checksum
-        run: shasum -a 256 dist/curlew > dist/curlew.sha256
+      - name: Generate checksums
+        run: cd dist && shasum -a 256 curlew-* > checksums.sha256
 
       - name: Create release
         uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda  # v2.2.1
         with:
           files: |
-            dist/curlew
-            dist/curlew.sha256
+            dist/curlew-*
+            dist/checksums.sha256
           generate_release_notes: true
 
       - name: Bump Homebrew tap
