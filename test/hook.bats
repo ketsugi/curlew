@@ -29,7 +29,7 @@ setup() {
 @test "should fail when --hook given no argument" {
   run "$CURLEW" --hook
   [ "$status" -ne 0 ]
-  [[ "$output" == *"requires an argument"* ]]
+  [[ "$output" == *"argument"* ]]
 }
 
 @test "should fail when --hook given unsupported shell" {

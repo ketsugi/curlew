@@ -3,6 +3,8 @@ package run
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"golang.org/x/term"
 )
@@ -83,11 +85,56 @@ func confirmFallback(defaultYes bool) (bool, error) {
 }
 
 // termWidth returns the current terminal width, or fallback if it can't be
-// determined.
+// determined. Tries multiple sources: stdout, stderr, /dev/tty, and the
+// COLUMNS env var (works inside pipelines and under `script`).
 func termWidth(fallback int) int {
-	w, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || w <= 0 {
-		return fallback
+	// Try stdout
+	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 0 {
+		return w
 	}
-	return w
+	// Try stderr (often still attached to the terminal when stdout is piped)
+	if w, _, err := term.GetSize(int(os.Stderr.Fd())); err == nil && w > 0 {
+		return w
+	}
+	// Try /dev/tty
+	if tty, err := os.Open("/dev/tty"); err == nil {
+		defer tty.Close()
+		if w, _, err := term.GetSize(int(tty.Fd())); err == nil && w > 0 {
+			return w
+		}
+	}
+	// Try stty size via /dev/tty (matches the bash version's approach;
+	// reads the line discipline which reflects stty cols changes)
+	if tty, err := os.Open("/dev/tty"); err == nil {
+		cmd := exec.Command("stty", "size")
+		cmd.Stdin = tty
+		if out, err := cmd.Output(); err == nil {
+			fields := strings.Fields(strings.TrimSpace(string(out)))
+			if len(fields) >= 2 {
+				if w := parseInt(fields[1]); w > 0 {
+					tty.Close()
+					return w
+				}
+			}
+		}
+		tty.Close()
+	}
+	// Try COLUMNS env var
+	if cols := os.Getenv("COLUMNS"); cols != "" {
+		if w := parseInt(cols); w > 0 {
+			return w
+		}
+	}
+	return fallback
+}
+
+func parseInt(s string) int {
+	n := 0
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return 0
+		}
+		n = n*10 + int(c-'0')
+	}
+	return n
 }
