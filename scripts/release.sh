@@ -45,6 +45,9 @@ echo ""
 read -rp "Proceed? [y/N] " confirm
 [[ "$confirm" == [yY] ]] || { echo "Aborted."; exit 0; }
 
+# Ensure working tree is clean before switching branches
+git diff --quiet && git diff --cached --quiet || { echo "Working tree not clean. Commit or stash first." >&2; exit 1; }
+
 git checkout main
 git pull origin main
 git checkout -b "$branch"
