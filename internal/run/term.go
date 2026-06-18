@@ -1,6 +1,7 @@
 package run
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,6 +9,12 @@ import (
 
 	"golang.org/x/term"
 )
+
+// ErrInterrupted is returned by confirm when the user hits Ctrl-C at a prompt.
+// Raw mode suppresses SIGINT (it delivers byte 3 instead), so this is the
+// in-band signal that lets Execute return normally and run its deferred
+// temp-file cleanup, rather than os.Exit skipping it.
+var ErrInterrupted = errors.New("interrupted")
 
 // confirm prints a prompt and reads a single keypress (no Enter needed).
 // Returns true for y/Y, false for n/N. A bare Enter uses the default.
@@ -48,10 +55,9 @@ func confirm(prompt string, defaultYes bool) (bool, error) {
 	case 'n', 'N':
 		fmt.Fprintln(os.Stderr, "n")
 		return false, nil
-	case 3: // Ctrl-C
+	case 3: // Ctrl-C (raw mode delivers ETX, not SIGINT)
 		fmt.Fprintln(os.Stderr)
-		os.Exit(130)
-		return false, nil
+		return false, ErrInterrupted
 	default:
 		fmt.Fprintln(os.Stderr, string(key))
 		return defaultYes, nil
