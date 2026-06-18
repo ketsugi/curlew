@@ -3,7 +3,7 @@
 
 setup() {
   CURLEW_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
-  CURLEW="$CURLEW_ROOT/bin/curlew"
+  CURLEW="${CURLEW:-$CURLEW_ROOT/bin/curlew}"
 
   # Shared regex — must match the pattern used in the hook code.
   # If the hook regex changes, update it here.
@@ -13,27 +13,27 @@ setup() {
 # --- curlew --hook flag ---
 
 @test "should output zsh preexec hook when --hook zsh" {
-  run bash "$CURLEW" --hook zsh
+  run "$CURLEW" --hook zsh
   [ "$status" -eq 0 ]
   [[ "$output" == *"__curlew_preexec"* ]]
   [[ "$output" == *"add-zsh-hook"* ]]
 }
 
 @test "should output bash debug trap when --hook bash" {
-  run bash "$CURLEW" --hook bash
+  run "$CURLEW" --hook bash
   [ "$status" -eq 0 ]
   [[ "$output" == *"__curlew_trap_debug"* ]]
   [[ "$output" == *"extdebug"* ]]
 }
 
 @test "should fail when --hook given no argument" {
-  run bash "$CURLEW" --hook
+  run "$CURLEW" --hook
   [ "$status" -ne 0 ]
   [[ "$output" == *"requires an argument"* ]]
 }
 
 @test "should fail when --hook given unsupported shell" {
-  run bash "$CURLEW" --hook fish
+  run "$CURLEW" --hook fish
   [ "$status" -ne 0 ]
   [[ "$output" == *"Unsupported shell"* ]]
 }
@@ -42,12 +42,12 @@ setup() {
 
 @test "should parse cleanly when zsh hook is evaluated in zsh" {
   command -v zsh >/dev/null || skip "zsh not installed"
-  run zsh -c "eval \"\$(bash '$CURLEW' --hook zsh)\""
+  run zsh -c "eval \"\$('$CURLEW' --hook zsh)\""
   [ "$status" -eq 0 ]
 }
 
 @test "should parse cleanly when bash hook is evaluated in bash" {
-  run bash -c "eval \"\$(bash '$CURLEW' --hook bash)\""
+  run bash -c "eval \"\$('$CURLEW' --hook bash)\""
   [ "$status" -eq 0 ]
 }
 
@@ -57,7 +57,7 @@ setup() {
 @test "should intercept and route curl|bash when zsh hook fires" {
   command -v zsh >/dev/null || skip "zsh not installed"
   run zsh -c "
-    eval \"\$(bash '$CURLEW' --hook zsh)\"
+    eval \"\$('$CURLEW' --hook zsh)\"
     curlew() { print -r -- \"STUB_HIT:\$*\"; }
     kill() { :; }
     __curlew_preexec 'curl -fsSL https://example.com/install.sh | bash'
@@ -68,7 +68,7 @@ setup() {
 @test "should not intercept when sudo in pipe target (zsh runtime)" {
   command -v zsh >/dev/null || skip "zsh not installed"
   run zsh -c "
-    eval \"\$(bash '$CURLEW' --hook zsh)\"
+    eval \"\$('$CURLEW' --hook zsh)\"
     curlew() { print -r -- STUB_HIT; }
     kill() { :; }
     __curlew_preexec 'curl -fsSL https://example.com | sudo bash'
@@ -79,7 +79,7 @@ setup() {
 @test "should honor inline CURLEW_BYPASS=1 prefix (zsh runtime)" {
   command -v zsh >/dev/null || skip "zsh not installed"
   run zsh -c "
-    eval \"\$(bash '$CURLEW' --hook zsh)\"
+    eval \"\$('$CURLEW' --hook zsh)\"
     curlew() { print -r -- STUB_HIT; }
     kill() { :; }
     __curlew_preexec 'CURLEW_BYPASS=1 curl -fsSL https://example.com/install.sh | bash'
@@ -90,12 +90,12 @@ setup() {
 # --- Bypass detection ---
 
 @test "should include CURLEW_BYPASS in zsh hook output" {
-  run bash "$CURLEW" --hook zsh
+  run "$CURLEW" --hook zsh
   [[ "$output" == *'CURLEW_BYPASS'* ]]
 }
 
 @test "should include CURLEW_BYPASS in bash hook output" {
-  run bash "$CURLEW" --hook bash
+  run "$CURLEW" --hook bash
   [[ "$output" == *'CURLEW_BYPASS'* ]]
 }
 
