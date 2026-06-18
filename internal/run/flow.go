@@ -180,7 +180,7 @@ func fetch(target string, dst *os.File) error {
 		return nil
 	}
 
-	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") || strings.HasPrefix(target, "ftp://") {
+	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
 		info("Downloading: %s", target)
 		client := &http.Client{Timeout: downloadTimeout}
 		resp, err := client.Get(target)

@@ -112,12 +112,14 @@ func TestFetch_HTTPEmpty(t *testing.T) {
 }
 
 func TestFetch_UnsupportedScheme(t *testing.T) {
-	_, err := fetchToString(t, "gopher://example.com/x")
-	if err == nil {
-		t.Fatal("expected error for unsupported scheme")
-	}
-	if !strings.Contains(err.Error(), "Not a valid URL or local file") {
-		t.Errorf("expected 'Not a valid URL or local file', got %v", err)
+	for _, scheme := range []string{"gopher://example.com/x", "ftp://example.com/x"} {
+		_, err := fetchToString(t, scheme)
+		if err == nil {
+			t.Fatalf("%s: expected error for unsupported scheme", scheme)
+		}
+		if !strings.Contains(err.Error(), "Not a valid URL or local file") {
+			t.Errorf("%s: expected 'Not a valid URL or local file', got %v", scheme, err)
+		}
 	}
 }
 
