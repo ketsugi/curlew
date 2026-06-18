@@ -48,6 +48,21 @@ func TestMIMEType_ELFBinary(t *testing.T) {
 	}
 }
 
+func TestMIMEType_Empty(t *testing.T) {
+	// A bare Read returns io.EOF on an empty file, which used to surface as a
+	// confusing ("", io.EOF). With io.ReadFull tolerating EOF, an empty file
+	// sniffs as text/plain rather than erroring. (Empty input is rejected
+	// upstream in fetch; this just keeps MIMEType from misbehaving defensively.)
+	path := writeTmp(t, []byte{})
+	mime, err := MIMEType(path)
+	if err != nil {
+		t.Errorf("empty file should not error, got %v (mime=%s)", err, mime)
+	}
+	if mime != "text/plain" {
+		t.Errorf("empty file: expected text/plain, got %s", mime)
+	}
+}
+
 // --- HasNullBytes ---
 
 func TestHasNullBytes_BinaryFile(t *testing.T) {
