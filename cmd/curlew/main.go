@@ -61,7 +61,7 @@ func emitHook(shell string) error {
 	case "bash":
 		fmt.Print(hook.BashHook())
 	default:
-		return fmt.Errorf("unsupported shell: %s (supported: zsh, bash)", shell)
+		return fmt.Errorf("Unsupported shell: %s (supported: zsh, bash)", shell)
 	}
 	return nil
 }
