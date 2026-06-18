@@ -263,6 +263,18 @@ func TestGetInterpreter_BashWithFlag(t *testing.T) {
 	}
 }
 
+func TestGetInterpreter_BareShebangFallsBackToBash(t *testing.T) {
+	// A bare "#!" or a shebang with only whitespace has no interpreter token;
+	// it must fall back to bash rather than returning an empty slice (which
+	// would make the caller exec the script file directly).
+	for _, line := range []string{"#!", "#!   ", "#!\t"} {
+		result := GetInterpreter(line)
+		if len(result) != 1 || result[0] != "bash" {
+			t.Errorf("GetInterpreter(%q): expected [bash], got %v", line, result)
+		}
+	}
+}
+
 // --- Helpers ---
 
 func contains(s, sub string) bool {
