@@ -147,21 +147,50 @@ func TestParseInt_Invalid(t *testing.T) {
 
 func TestTermWidth_FallsBackToColumns(t *testing.T) {
 	t.Setenv("COLUMNS", "200")
-	// In a test environment without a real TTY, all FD-based checks fail,
-	// so we should eventually hit the COLUMNS env var fallback.
-	w := termWidth(80)
-	if w != 200 && w != 80 {
-		// If a real terminal is attached (e.g. local dev), we might get
-		// the actual width. Accept that too.
-		t.Logf("termWidth returned %d (may have found a real terminal)", w)
+	// Pass no valid fds so all fd-based checks fail and we hit COLUMNS.
+	w := termWidthFromFds(nil, 80)
+	if w != 200 {
+		t.Errorf("expected 200 from COLUMNS, got %d", w)
 	}
 }
 
 func TestTermWidth_InvalidColumns(t *testing.T) {
 	t.Setenv("COLUMNS", "notanumber")
-	w := termWidth(80)
-	if w == 0 {
-		t.Error("should not return 0 — fallback should be 80")
+	w := termWidthFromFds(nil, 80)
+	if w != 80 {
+		t.Errorf("expected fallback 80, got %d", w)
+	}
+}
+
+func TestTermWidth_FromPTY(t *testing.T) {
+	pty, err := openPTY()
+	if err != nil {
+		t.Skipf("cannot open PTY: %v", err)
+	}
+	defer pty.Close()
+
+	// Set the PTY to a known width
+	if err := setPTYSize(pty, 142, 40); err != nil {
+		t.Skipf("cannot set PTY size: %v", err)
+	}
+
+	w := termWidthFromFds([]uintptr{pty.Fd()}, 80)
+	if w != 142 {
+		t.Errorf("expected 142 from PTY, got %d", w)
+	}
+}
+
+func TestTermWidth_FallbackWhenFdNotTerminal(t *testing.T) {
+	// A pipe fd is not a terminal — termWidthFromFds should skip it
+	r, w, _ := os.Pipe()
+	defer r.Close()
+	defer w.Close()
+
+	t.Setenv("COLUMNS", "")
+	got := termWidthFromFds([]uintptr{r.Fd()}, 99)
+	// Should fall through to fallback (no COLUMNS set, pipe isn't a terminal)
+	if got == 0 {
+		t.Error("should not return 0")
 	}
 }
 

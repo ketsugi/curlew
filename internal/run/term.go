@@ -107,21 +107,25 @@ func readKeypress(r io.Reader) (key byte, ok bool) {
 }
 
 // termWidth returns the current terminal width, or fallback if it can't be
-// determined. Tries multiple sources: stdout, stderr, /dev/tty, and the
+// determined. Tries multiple sources: stdout, stderr, /dev/tty, stty, and the
 // COLUMNS env var (works inside pipelines and under `script`).
 func termWidth(fallback int) int {
-	// Try stdout
-	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 0 {
-		return w
-	}
-	// Try stderr (often still attached to the terminal when stdout is piped)
-	if w, _, err := term.GetSize(int(os.Stderr.Fd())); err == nil && w > 0 {
-		return w
+	return termWidthFromFds([]uintptr{os.Stdout.Fd(), os.Stderr.Fd()}, fallback)
+}
+
+// termWidthFromFds probes the given fds for terminal width, then falls back to
+// /dev/tty, stty, COLUMNS, and finally the provided fallback value.
+func termWidthFromFds(fds []uintptr, fallback int) int {
+	for _, fd := range fds {
+		if w, _, err := term.GetSize(int(fd)); err == nil && w > 0 {
+			return w
+		}
 	}
 	// Try /dev/tty
 	if tty, err := os.Open("/dev/tty"); err == nil {
-		defer tty.Close()
-		if w, _, err := term.GetSize(int(tty.Fd())); err == nil && w > 0 {
+		w, _, err := term.GetSize(int(tty.Fd()))
+		tty.Close()
+		if err == nil && w > 0 {
 			return w
 		}
 	}
@@ -130,16 +134,16 @@ func termWidth(fallback int) int {
 	if tty, err := os.Open("/dev/tty"); err == nil {
 		cmd := exec.Command("stty", "size")
 		cmd.Stdin = tty
-		if out, err := cmd.Output(); err == nil {
+		out, err := cmd.Output()
+		tty.Close()
+		if err == nil {
 			fields := strings.Fields(strings.TrimSpace(string(out)))
 			if len(fields) >= 2 {
 				if w := parseInt(fields[1]); w > 0 {
-					tty.Close()
 					return w
 				}
 			}
 		}
-		tty.Close()
 	}
 	// Try COLUMNS env var
 	if cols := os.Getenv("COLUMNS"); cols != "" {
