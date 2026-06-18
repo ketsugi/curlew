@@ -35,11 +35,22 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	// Merge e2e coverage into a text profile if GOCOVERDIR was requested by CI.
+	// Merge e2e coverage into a text profile if requested by CI.
 	if dest := os.Getenv("E2E_COVERAGE_OUT"); dest != "" {
-		merge := exec.Command("go", "tool", "covdata", "textfmt", "-i="+coverDir, "-o="+dest)
-		merge.Stderr = os.Stderr
-		merge.Run()
+		entries, _ := os.ReadDir(coverDir)
+		fmt.Fprintf(os.Stderr, "e2e coverage: %d files in %s\n", len(entries), coverDir)
+		if len(entries) > 0 {
+			merge := exec.Command("go", "tool", "covdata", "textfmt", "-i="+coverDir, "-o="+dest)
+			merge.Stderr = os.Stderr
+			if err := merge.Run(); err != nil {
+				fmt.Fprintf(os.Stderr, "e2e coverage merge failed: %v\n", err)
+			} else {
+				fi, _ := os.Stat(dest)
+				fmt.Fprintf(os.Stderr, "e2e coverage written: %s (%d bytes)\n", dest, fi.Size())
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "e2e coverage: no data collected (binary may not support -cover)\n")
+		}
 	}
 
 	os.Exit(code)
