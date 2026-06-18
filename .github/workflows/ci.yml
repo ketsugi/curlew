@@ -25,20 +25,15 @@ jobs:
           test -z "$(gofmt -l .)"
 
       - name: Run unit tests with coverage
-        run: go test ./internal/... -count=1 -coverprofile=unit.cov -covermode=atomic
+        run: go test ./internal/... -count=1 -coverprofile=unit.cov
 
       - name: Run e2e tests with coverage
-        run: |
-          E2E_COVERAGE_OUT=e2e.cov go test ./e2e/ -count=1
+        run: E2E_COVERAGE_OUT=e2e.cov go test ./e2e/ -count=1
 
       - name: Merge coverage profiles
         run: |
-          # Combine unit and e2e profiles into one file for Codecov
-          head -1 unit.cov > coverage.txt
-          tail -n +2 unit.cov >> coverage.txt
-          if [ -f e2e.cov ]; then
-            tail -n +2 e2e.cov >> coverage.txt
-          fi
+          echo "mode: set" > coverage.txt
+          grep -hv "^mode:" unit.cov e2e.cov >> coverage.txt 2>/dev/null || true
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac  # v5.5.5
