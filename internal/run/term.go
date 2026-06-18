@@ -76,6 +76,9 @@ func confirmFallback(defaultYes bool) (bool, error) {
 	case 'n', 'N':
 		fmt.Fprintln(os.Stderr, "n")
 		return false, nil
+	case 3: // Ctrl-C
+		fmt.Fprintln(os.Stderr)
+		return false, ErrInterrupted
 	case '\r', '\n':
 		if defaultYes {
 			fmt.Fprintln(os.Stderr, "y")

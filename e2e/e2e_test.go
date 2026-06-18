@@ -9,7 +9,10 @@ import (
 	"testing"
 )
 
-var binary string
+var (
+	binary   string
+	coverDir string
+)
 
 func TestMain(m *testing.M) {
 	tmp, err := os.MkdirTemp("", "curlew-e2e-*")
@@ -20,6 +23,9 @@ func TestMain(m *testing.M) {
 	defer os.RemoveAll(tmp)
 
 	binary = filepath.Join(tmp, "curlew")
+	coverDir = filepath.Join(tmp, "covdata")
+	os.MkdirAll(coverDir, 0o755)
+
 	cmd := exec.Command("go", "build", "-cover", "-o", binary, "../cmd/curlew/")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -27,15 +33,25 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	os.Exit(m.Run())
+	code := m.Run()
+
+	// Merge e2e coverage into a text profile if GOCOVERDIR was requested by CI.
+	if dest := os.Getenv("E2E_COVERAGE_OUT"); dest != "" {
+		merge := exec.Command("go", "tool", "covdata", "textfmt", "-i="+coverDir, "-o="+dest)
+		merge.Stderr = os.Stderr
+		merge.Run()
+	}
+
+	os.Exit(code)
 }
 
 // run executes the binary with piped input and returns combined output + exit code.
+// Each invocation writes coverage data to coverDir via GOCOVERDIR.
 func run(t *testing.T, stdin string, env []string, args ...string) (string, int) {
 	t.Helper()
 	cmd := exec.Command(binary, args...)
 	cmd.Stdin = strings.NewReader(stdin)
-	cmd.Env = append(os.Environ(), "CURLEW_SKIP_TTY_CHECK=1")
+	cmd.Env = append(os.Environ(), "CURLEW_SKIP_TTY_CHECK=1", "GOCOVERDIR="+coverDir)
 	cmd.Env = append(cmd.Env, env...)
 	out, err := cmd.CombinedOutput()
 	code := 0
@@ -248,6 +264,40 @@ func TestBinaryFileRejected(t *testing.T) {
 	}
 	if !strings.Contains(out, "Not a text-based script") && !strings.Contains(out, "null bytes") {
 		t.Errorf("expected binary rejection, got:\n%s", out)
+	}
+}
+
+// --- Empty file ---
+
+func TestEmptyFileRejected(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "empty.sh")
+	os.WriteFile(script, []byte{}, 0o644)
+
+	out, code := run(t, "", nil, script)
+
+	if code == 0 {
+		t.Error("expected non-zero exit for empty file")
+	}
+	if !strings.Contains(out, "empty") {
+		t.Errorf("expected 'empty' error, got:\n%s", out)
+	}
+}
+
+// --- Interpreter execution ---
+
+func TestNonBashShebangExecuted(t *testing.T) {
+	dir := t.TempDir()
+	// A script with a python3 shebang that prints a marker
+	script := writeScript(t, dir, "hello.py", "#!/usr/bin/env python3\nprint('PYTHON_EXECUTED')\n")
+
+	out, code := run(t, "nny", nil, script)
+
+	if code != 0 {
+		t.Errorf("expected exit 0, got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "PYTHON_EXECUTED") {
+		t.Errorf("expected script output via python3 interpreter, got:\n%s", out)
 	}
 }
 
