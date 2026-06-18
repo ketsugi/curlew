@@ -36,8 +36,8 @@ jobs:
         if: steps.version.outputs.changed == 'true'
         run: |
           tag="${{ steps.version.outputs.tag }}"
-          if git rev-parse "$tag" >/dev/null 2>&1; then
-            echo "Tag $tag already exists, skipping."
+          if git ls-remote --tags origin "refs/tags/$tag" | grep -q .; then
+            echo "Tag $tag already exists on remote, skipping."
             exit 0
           fi
           git config user.name 'github-actions[bot]'
