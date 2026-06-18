@@ -1,7 +1,7 @@
 # ADR-005: Configuration system design
 
-**Status:** Proposed (2026-06-15)
-**Issues:** [#4](https://github.com/ketsugi/curlew/issues/4), [#5](https://github.com/ketsugi/curlew/issues/5) (both open)
+**Status:** Superseded (2026-06-18) — implemented as TOML per #33; see `internal/config/`
+**Issues:** [#4](https://github.com/ketsugi/curlew/issues/4), [#5](https://github.com/ketsugi/curlew/issues/5), [#33](https://github.com/ketsugi/curlew/issues/33)
 
 ## Context
 

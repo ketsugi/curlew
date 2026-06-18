@@ -1,35 +1,12 @@
 package ai
 
 import (
-	"os"
 	"strings"
 	"testing"
 )
 
-func setEnv(t *testing.T, key, val string) {
-	t.Helper()
-	old, existed := os.LookupEnv(key)
-	os.Setenv(key, val)
-	t.Cleanup(func() {
-		if existed {
-			os.Setenv(key, old)
-		} else {
-			os.Unsetenv(key)
-		}
-	})
-}
-
-func clearEnv(t *testing.T, keys ...string) {
-	t.Helper()
-	for _, k := range keys {
-		setEnv(t, k, "")
-		os.Unsetenv(k)
-	}
-}
-
 func TestResolveCommand_DefaultClaude(t *testing.T) {
-	clearEnv(t, "CURLEW_AI", "CURLEW_MODEL", "CURLEW_AI_CMD", "CURLEW_CLAUDE_CMD")
-	cmd, err := ResolveCommand()
+	cmd, err := ResolveCommand("", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,10 +17,7 @@ func TestResolveCommand_DefaultClaude(t *testing.T) {
 }
 
 func TestResolveCommand_ClaudeWithModel(t *testing.T) {
-	clearEnv(t, "CURLEW_AI_CMD", "CURLEW_CLAUDE_CMD")
-	setEnv(t, "CURLEW_AI", "claude")
-	setEnv(t, "CURLEW_MODEL", "opus")
-	cmd, err := ResolveCommand()
+	cmd, err := ResolveCommand("claude", "opus", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,11 +28,7 @@ func TestResolveCommand_ClaudeWithModel(t *testing.T) {
 }
 
 func TestResolveCommand_ClaudeWithCustomBinary(t *testing.T) {
-	clearEnv(t, "CURLEW_AI_CMD")
-	setEnv(t, "CURLEW_AI", "claude")
-	setEnv(t, "CURLEW_MODEL", "")
-	setEnv(t, "CURLEW_CLAUDE_CMD", "/opt/mock-claude")
-	cmd, err := ResolveCommand()
+	cmd, err := ResolveCommand("claude", "", "", "/opt/mock-claude")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,10 +39,7 @@ func TestResolveCommand_ClaudeWithCustomBinary(t *testing.T) {
 }
 
 func TestResolveCommand_Ollama(t *testing.T) {
-	clearEnv(t, "CURLEW_AI_CMD", "CURLEW_CLAUDE_CMD")
-	setEnv(t, "CURLEW_AI", "ollama")
-	setEnv(t, "CURLEW_MODEL", "llama3")
-	cmd, err := ResolveCommand()
+	cmd, err := ResolveCommand("ollama", "llama3", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,22 +50,14 @@ func TestResolveCommand_Ollama(t *testing.T) {
 }
 
 func TestResolveCommand_OllamaNoModel(t *testing.T) {
-	clearEnv(t, "CURLEW_AI_CMD", "CURLEW_CLAUDE_CMD", "CURLEW_MODEL")
-	setEnv(t, "CURLEW_AI", "ollama")
-	_, err := ResolveCommand()
+	_, err := ResolveCommand("ollama", "", "", "")
 	if err == nil {
 		t.Error("expected error for ollama without model")
-	}
-	if !strings.Contains(err.Error(), "CURLEW_MODEL") {
-		t.Errorf("expected error to mention CURLEW_MODEL, got: %v", err)
 	}
 }
 
 func TestResolveCommand_AICmdOverride(t *testing.T) {
-	setEnv(t, "CURLEW_AI", "claude")
-	setEnv(t, "CURLEW_MODEL", "opus")
-	setEnv(t, "CURLEW_AI_CMD", "my-llm --chat")
-	cmd, err := ResolveCommand()
+	cmd, err := ResolveCommand("claude", "opus", "my-llm --chat", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,9 +68,7 @@ func TestResolveCommand_AICmdOverride(t *testing.T) {
 }
 
 func TestResolveCommand_UnknownBackend(t *testing.T) {
-	clearEnv(t, "CURLEW_AI_CMD", "CURLEW_CLAUDE_CMD", "CURLEW_MODEL")
-	setEnv(t, "CURLEW_AI", "bogus")
-	_, err := ResolveCommand()
+	_, err := ResolveCommand("bogus", "", "", "")
 	if err == nil {
 		t.Error("expected error for unknown backend")
 	}

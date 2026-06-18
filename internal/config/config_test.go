@@ -1,0 +1,125 @@
+package config
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestDefaults(t *testing.T) {
+	cfg := Defaults()
+	if cfg.AI != "claude" {
+		t.Errorf("expected ai=claude, got %q", cfg.AI)
+	}
+	if cfg.Model != "sonnet" {
+		t.Errorf("expected model=sonnet, got %q", cfg.Model)
+	}
+	if cfg.Threshold != 20 {
+		t.Errorf("expected threshold=20, got %d", cfg.Threshold)
+	}
+}
+
+func TestLoad_NoFile(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("CURLEW_AI", "")
+	t.Setenv("CURLEW_MODEL", "")
+	t.Setenv("CURLEW_AI_CMD", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg != Defaults() {
+		t.Errorf("expected defaults when no file, got %+v", cfg)
+	}
+}
+
+func TestLoad_FromFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("CURLEW_AI", "")
+	t.Setenv("CURLEW_MODEL", "")
+	t.Setenv("CURLEW_AI_CMD", "")
+
+	cfgDir := filepath.Join(dir, "curlew")
+	os.MkdirAll(cfgDir, 0o755)
+	os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(`
+ai = "ollama"
+model = "llama3"
+threshold = 50
+`), 0o644)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AI != "ollama" {
+		t.Errorf("expected ai=ollama, got %q", cfg.AI)
+	}
+	if cfg.Model != "llama3" {
+		t.Errorf("expected model=llama3, got %q", cfg.Model)
+	}
+	if cfg.Threshold != 50 {
+		t.Errorf("expected threshold=50, got %d", cfg.Threshold)
+	}
+}
+
+func TestLoad_EnvOverridesFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+
+	cfgDir := filepath.Join(dir, "curlew")
+	os.MkdirAll(cfgDir, 0o755)
+	os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(`
+ai = "ollama"
+model = "llama3"
+`), 0o644)
+
+	t.Setenv("CURLEW_AI", "claude")
+	t.Setenv("CURLEW_MODEL", "opus")
+	t.Setenv("CURLEW_AI_CMD", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AI != "claude" {
+		t.Errorf("expected env override ai=claude, got %q", cfg.AI)
+	}
+	if cfg.Model != "opus" {
+		t.Errorf("expected env override model=opus, got %q", cfg.Model)
+	}
+}
+
+func TestLoad_AICmdOverridesAll(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("CURLEW_AI", "ollama")
+	t.Setenv("CURLEW_MODEL", "llama3")
+	t.Setenv("CURLEW_AI_CMD", "my-custom-ai --run")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AICmd != "my-custom-ai --run" {
+		t.Errorf("expected ai_cmd override, got %q", cfg.AICmd)
+	}
+}
+
+func TestLoad_InvalidTOML(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("CURLEW_AI", "")
+	t.Setenv("CURLEW_MODEL", "")
+	t.Setenv("CURLEW_AI_CMD", "")
+
+	cfgDir := filepath.Join(dir, "curlew")
+	os.MkdirAll(cfgDir, 0o755)
+	os.WriteFile(filepath.Join(cfgDir, "config.toml"), []byte(`not valid [[[ toml`), 0o644)
+
+	_, err := Load()
+	if err == nil {
+		t.Error("expected error for invalid TOML")
+	}
+}

@@ -18,11 +18,11 @@ var forceAnalyze bool
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "curlew [url-or-file]",
-		Short: "Inspect before you execute",
-		Long:  "curlew — inspect before you execute. A safe wrapper for curl|bash.",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  execute,
+		Use:           "curlew [url-or-file]",
+		Short:         "Inspect before you execute",
+		Long:          "curlew — inspect before you execute. A safe wrapper for curl|bash.",
+		Args:          cobra.MaximumNArgs(1),
+		RunE:          execute,
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}

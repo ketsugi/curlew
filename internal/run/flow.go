@@ -14,10 +14,9 @@ import (
 	"time"
 
 	"github.com/ketsugi/curlew/internal/ai"
+	"github.com/ketsugi/curlew/internal/config"
 	"github.com/ketsugi/curlew/internal/validate"
 )
-
-const analysisThreshold = 20
 
 const (
 	// defaultMaxDownloadBytes caps how much curlew pulls from a remote URL so a
@@ -37,6 +36,7 @@ type Options struct {
 	Target       string
 	ForceAnalyze bool
 	SkipTTY      bool // CURLEW_SKIP_TTY_CHECK
+	Config       config.Config
 }
 
 // Execute runs the full curlew interactive flow:
@@ -106,11 +106,12 @@ func Execute(opts Options) error {
 	}
 
 	// --- Step 3: AI analysis ---
+	threshold := opts.Config.Threshold
 	doAnalyze := false
 	var cErr error
-	if lineCount > analysisThreshold {
+	if lineCount > threshold {
 		doAnalyze, cErr = confirm(
-			fmt.Sprintf("\033[1;33mScript is longer than %d lines. Run AI analysis? [Y/n]\033[0m ", analysisThreshold),
+			fmt.Sprintf("\033[1;33mScript is longer than %d lines. Run AI analysis? [Y/n]\033[0m ", threshold),
 			true,
 		)
 	} else {
@@ -121,7 +122,7 @@ func Execute(opts Options) error {
 	}
 
 	if doAnalyze {
-		if err := runAnalysis(tmpfile, opts.ForceAnalyze); err != nil {
+		if err := runAnalysis(tmpfile, opts.ForceAnalyze, opts.Config); err != nil {
 			warn("%s", err)
 			warn("Skipping AI analysis.")
 		}
@@ -230,8 +231,9 @@ func cleanupOnInterrupt(path string) (stop func()) {
 	}
 }
 
-func runAnalysis(tmpfile string, forceAnalyze bool) error {
-	cmdParts, err := ai.ResolveCommand()
+func runAnalysis(tmpfile string, forceAnalyze bool, cfg config.Config) error {
+	claudeCmd := os.Getenv("CURLEW_CLAUDE_CMD")
+	cmdParts, err := ai.ResolveCommand(cfg.AI, cfg.Model, cfg.AICmd, claudeCmd)
 	if err != nil {
 		return err
 	}

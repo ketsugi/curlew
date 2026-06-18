@@ -89,6 +89,24 @@ CURLEW_AI_CMD="aichat -m openai:gpt-4o" curlew https://example.com/install.sh
 
 The backend reads the analysis prompt on stdin and writes markdown to stdout. If the configured backend is missing or misconfigured, curlew warns and skips analysis — it never blocks inspection or execution.
 
+## Configuration file
+
+Instead of exporting env vars in your shell rc, you can persist settings in a TOML config file:
+
+```bash
+curlew --init-config   # writes ~/.config/curlew/config.toml
+```
+
+```toml
+ai = "ollama"
+model = "qwen2.5-coder:7b"
+threshold = 50   # auto-suggest AI analysis above this many lines
+```
+
+Location: `$XDG_CONFIG_HOME/curlew/config.toml` (defaults to `~/.config/curlew/config.toml`).
+
+Precedence: CLI flags > env vars > config file > built-in defaults.
+
 ## Shell hook (transparent interception)
 
 Instead of remembering to type `curlew` every time, you can install a shell hook that automatically intercepts `curl ... | bash` commands:

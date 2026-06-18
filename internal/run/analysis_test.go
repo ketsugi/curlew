@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ketsugi/curlew/internal/config"
 )
 
 // TestRunAnalysis_BackendError verifies that a non-zero exit from the AI
@@ -29,9 +31,10 @@ func TestRunAnalysis_BackendError(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stderr = w
 
-	t.Setenv("CURLEW_AI_CMD", mockAI)
+	cfg := config.Defaults()
+	cfg.AICmd = mockAI
 
-	err := runAnalysis(script, false)
+	err := runAnalysis(script, false, cfg)
 
 	w.Close()
 	os.Stderr = origStderr
@@ -67,9 +70,10 @@ func TestRunAnalysis_BackendSuccess(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stderr = w
 
-	t.Setenv("CURLEW_AI_CMD", mockAI)
+	cfg := config.Defaults()
+	cfg.AICmd = mockAI
 
-	err := runAnalysis(script, false)
+	err := runAnalysis(script, false, cfg)
 
 	w.Close()
 	os.Stderr = origStderr
