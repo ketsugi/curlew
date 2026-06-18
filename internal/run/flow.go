@@ -283,24 +283,46 @@ Script contents (delimited by %s_BEGIN/%s_END):
 	aiCmd := exec.Command(cmdParts[0], cmdParts[1:]...)
 	aiCmd.Stdin = strings.NewReader(prompt)
 
-	// Pipe AI output through glow if available, otherwise direct to stdout
+	// Pipe AI output through glow if available, otherwise direct to stdout.
+	var aiErr error
 	if glowPath, err := exec.LookPath("glow"); err == nil {
 		width := termWidth(100)
 		glowCmd := exec.Command(glowPath, "-w", fmt.Sprintf("%d", width), "-p", "-")
-		glowCmd.Stdin, _ = aiCmd.StdoutPipe()
+
+		pipe, err := aiCmd.StdoutPipe()
+		if err != nil {
+			return fmt.Errorf("failed to create AI output pipe: %w", err)
+		}
+		aiCmd.Stderr = os.Stderr
+		glowCmd.Stdin = pipe
 		glowCmd.Stdout = os.Stdout
 		glowCmd.Stderr = os.Stderr
 		glowCmd.Env = append(os.Environ(), fmt.Sprintf("PAGER=%s", pagerCmd()))
-		glowCmd.Start()
-		aiCmd.Run()
-		glowCmd.Wait()
+
+		if err := glowCmd.Start(); err != nil {
+			// glow failed to start — fall back to direct output
+			aiCmd.Stdout = os.Stdout
+			aiErr = aiCmd.Run()
+		} else {
+			if err := aiCmd.Start(); err != nil {
+				aiErr = err
+			} else {
+				aiErr = aiCmd.Wait()
+			}
+			glowCmd.Wait()
+		}
 	} else {
 		aiCmd.Stdout = os.Stdout
 		aiCmd.Stderr = os.Stderr
-		aiCmd.Run()
+		aiErr = aiCmd.Run()
 	}
 
 	fmt.Fprintf(os.Stderr, "\n\033[1;35m--- End Analysis ---\033[0m\n")
+
+	if aiErr != nil {
+		warn("AI backend exited with an error: %s", aiErr)
+	}
+
 	fmt.Fprintf(os.Stderr, "\033[2m(Note: AI analysis is advisory and can be fooled by adversarial scripts. It supplements, not replaces, manual inspection.)\033[0m\n\n")
 
 	return nil
