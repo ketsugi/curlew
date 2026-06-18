@@ -3,6 +3,7 @@ package validate
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"regexp"
@@ -26,9 +27,12 @@ func MIMEType(path string) (string, error) {
 	}
 	defer f.Close()
 
+	// Fill up to 512 bytes for content sniffing. io.ReadFull tolerates a short
+	// file (ErrUnexpectedEOF) and an empty one (EOF) — both just leave us with
+	// the n bytes actually read, instead of a bare Read returning io.EOF.
 	buf := make([]byte, 512)
-	n, err := f.Read(buf)
-	if err != nil {
+	n, err := io.ReadFull(f, buf)
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
 		return "", err
 	}
 
