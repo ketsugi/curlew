@@ -115,10 +115,19 @@ CURLEW_BYPASS=1 curl -fsSL https://example.com/install.sh | bash
 
 | Dependency | Purpose | Install |
 |------------|---------|---------|
-| [claude](https://docs.anthropic.com/en/docs/claude-code) | AI analysis of scripts | `npm install -g @anthropic-ai/claude-code` |
+| [claude](https://docs.anthropic.com/en/docs/claude-code) | AI analysis (default backend) | `npm install -g @anthropic-ai/claude-code` |
+| [ollama](https://ollama.com) | AI analysis (local models) | `brew install ollama` |
 | [glow](https://github.com/charmbracelet/glow) | Rich markdown rendering of analysis output | `brew install glow` |
 
-Both degrade gracefully — curlew works without them, you just won't get the AI analysis or pretty-printed output.
+All degrade gracefully — curlew works without them, you just won't get the AI analysis or pretty-printed output.
+
+## Output streams
+
+curlew writes its own diagnostics (progress messages, warnings, prompts) to **stderr**. The AI analysis markdown goes to **stdout**. This means you can capture just the analysis:
+
+```bash
+curlew https://example.com/install.sh 2>/dev/null > analysis.md
+```
 
 ## License
 
