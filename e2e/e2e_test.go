@@ -232,6 +232,7 @@ func TestRejectNonInteractiveWithoutSkip(t *testing.T) {
 			filtered = append(filtered, e)
 		}
 	}
+	filtered = append(filtered, "GOCOVERDIR="+coverDir)
 	cmd.Env = filtered
 	out, err := cmd.CombinedOutput()
 	if err == nil {

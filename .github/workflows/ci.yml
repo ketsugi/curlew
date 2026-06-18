@@ -19,6 +19,9 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Install glow
+        run: go install github.com/charmbracelet/glow@latest
+
       - name: Vet and format check
         run: |
           go vet ./...
