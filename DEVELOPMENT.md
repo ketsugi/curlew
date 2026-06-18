@@ -3,11 +3,10 @@
 ## Prerequisites
 
 - Go 1.21+
-- [bats-core](https://github.com/bats-core/bats-core) (for integration tests)
 
 ```bash
-brew install go bats-core   # macOS / Linuxbrew
-apt install golang bats     # Debian/Ubuntu
+brew install go     # macOS / Linuxbrew
+apt install golang  # Debian/Ubuntu
 ```
 
 ## Project structure
@@ -19,14 +18,13 @@ curlew/
 │   ├── hook/                     # shell hook string constants + tests
 │   ├── validate/                 # pure validation functions + tests
 │   ├── ai/                       # AI backend resolution + tests
-│   └── run/                      # interactive flow + terminal helpers
+│   ├── config/                   # TOML config loading + tests
+│   └── run/                      # interactive flow + terminal helpers + tests
+├── e2e/                          # integration tests (builds + execs the binary)
 ├── scripts/
 │   ├── build-dist.sh             # builds dist/curlew via go build
-│   ├── test-go.sh                # build + all tests (unit + integration)
+│   ├── test-go.sh                # runs go test ./...
 │   └── dev-shell.sh              # isolated shell with in-repo hook loaded
-├── test/
-│   ├── curlew-integration.bats   # end-to-end flow tests
-│   └── hook.bats                 # shell-hook emitter tests
 ├── .github/workflows/
 │   ├── ci.yml                    # tests on PR/push to main
 │   └── release.yml               # tag-triggered GitHub Release
@@ -40,23 +38,18 @@ curlew/
 
 ## Running tests
 
-Full suite (build + Go unit tests + bats integration):
-
-```bash
-scripts/test-go.sh
-```
-
-Go unit tests only:
+All tests (unit + e2e integration):
 
 ```bash
 go test ./...
 ```
 
-Integration tests only (requires the binary to be built first):
+The `e2e` package builds the binary automatically in `TestMain` — no manual build step needed.
+
+Unit tests only (skip e2e):
 
 ```bash
-go build -o bin/curlew-go ./cmd/curlew/
-bats test/
+go test ./internal/...
 ```
 
 ## Building the dist artifact
@@ -95,8 +88,8 @@ This launches an interactive shell with the in-repo binary on PATH and the hook 
 
 1. Write the function in the appropriate `internal/` package
 2. Add Go tests in the same package (`_test.go` file)
-3. If it affects observable CLI behavior, add/update a bats test
-4. Run `scripts/test-go.sh` to verify
+3. If it affects observable CLI behavior, add/update an e2e test in `e2e/`
+4. Run `go test ./...` to verify
 
 ## Environment variables (test-only internals)
 

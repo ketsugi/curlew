@@ -1,5 +1,7 @@
 # curlew
 
+[![codecov](https://codecov.io/gh/ketsugi/curlew/graph/badge.svg?token=76DKXGQBDU)](https://codecov.io/gh/ketsugi/curlew)
+
 > Inspect before you execute.
 
 A safe wrapper for `curl | bash` that lets you validate, inspect, and optionally AI-analyze scripts before running them.
