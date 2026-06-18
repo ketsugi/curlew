@@ -97,7 +97,7 @@ MOCK
 
 @test "should render AI analysis at full terminal width" {
   command -v glow >/dev/null || skip "glow not installed (analysis falls back to cat)"
-  command -v script >/dev/null || skip "script (util-linux) not available for pty"
+  command -v script >/dev/null || skip "script not available for pty"
 
   # Mock claude emits one long unwrapped line; glow reflows it to the width
   # it is told. Without the -w fix glow caps the wrap at ~80 columns.
@@ -117,7 +117,13 @@ stty cols 160
 printf 'nyn' | "$CURLEW" "$TEST_TMPDIR/s.sh"
 EOF
 
-  run script -qec "bash $TEST_TMPDIR/run.sh" /dev/null
+  # macOS script: script -q outputfile command...
+  # Linux script: script -qec "command" outputfile
+  if script --version 2>&1 | grep -q util-linux; then
+    run script -qec "bash $TEST_TMPDIR/run.sh" /dev/null
+  else
+    run script -q /dev/null bash "$TEST_TMPDIR/run.sh"
+  fi
 
   # Widest rendered line, ANSI and CR stripped. Default 80-col wrap tops out
   # near 80; the fix should push it well past that toward the 160-col tty.
