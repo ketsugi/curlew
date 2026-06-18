@@ -29,7 +29,19 @@ brew install ketsugi/tap/curlew
 
 ```bash
 mkdir -p ~/.local/bin
-curl -fsSL https://github.com/ketsugi/curlew/releases/latest/download/curlew -o ~/.local/bin/curlew
+
+# macOS (Apple Silicon)
+curl -fsSL https://github.com/ketsugi/curlew/releases/latest/download/curlew-darwin-arm64 -o ~/.local/bin/curlew
+
+# macOS (Intel)
+curl -fsSL https://github.com/ketsugi/curlew/releases/latest/download/curlew-darwin-amd64 -o ~/.local/bin/curlew
+
+# Linux (x86_64)
+curl -fsSL https://github.com/ketsugi/curlew/releases/latest/download/curlew-linux-amd64 -o ~/.local/bin/curlew
+
+# Linux (ARM64)
+curl -fsSL https://github.com/ketsugi/curlew/releases/latest/download/curlew-linux-arm64 -o ~/.local/bin/curlew
+
 chmod +x ~/.local/bin/curlew
 ```
 
