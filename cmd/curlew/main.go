@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/ketsugi/curlew/internal/hook"
+	"github.com/ketsugi/curlew/internal/run"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +19,7 @@ func main() {
 		Short: "Inspect before you execute",
 		Long:  "curlew — inspect before you execute. A safe wrapper for curl|bash.",
 		Args:  cobra.MaximumNArgs(1),
-		RunE:  run,
+		RunE:  execute,
 		// Silence cobra's default error/usage printing so we control output.
 		SilenceErrors: true,
 		SilenceUsage:  true,
@@ -36,7 +37,7 @@ func main() {
 	}
 }
 
-func run(cmd *cobra.Command, args []string) error {
+func execute(cmd *cobra.Command, args []string) error {
 	hookShell, _ := cmd.Flags().GetString("hook")
 	if hookShell != "" {
 		return emitHook(hookShell)
@@ -46,9 +47,11 @@ func run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	// Phase 3 will implement the full interactive flow here.
-	fmt.Fprintf(os.Stderr, "curlew: interactive flow not yet implemented in Go build\n")
-	return nil
+	return run.Execute(run.Options{
+		Target:       args[0],
+		ForceAnalyze: forceAnalyze,
+		SkipTTY:      os.Getenv("CURLEW_SKIP_TTY_CHECK") == "1",
+	})
 }
 
 func emitHook(shell string) error {
