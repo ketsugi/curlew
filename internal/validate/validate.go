@@ -78,15 +78,17 @@ func HasInjectionPatterns(path string) (bool, error) {
 	return injectionRe.Match(data), nil
 }
 
-// Known benign flags per interpreter.
+// Per-interpreter benign flags. Only flags that are safe in a shebang context
+// (i.e. they modify runtime behavior, not execute arbitrary code) are allowed.
+// Notably, -e means "execute string" in perl/ruby/node — dangerous in a shebang.
 var benignFlags = map[string]map[string]bool{
-	"bash":    {"-w": true, "-u": true, "-e": true, "-x": true, "-O": true, "-OO": true},
-	"sh":      {"-w": true, "-u": true, "-e": true, "-x": true, "-O": true, "-OO": true},
-	"perl":    {"-w": true, "-u": true, "-e": true, "-x": true, "-O": true, "-OO": true},
-	"python":  {"-w": true, "-u": true, "-e": true, "-x": true, "-O": true, "-OO": true},
-	"python3": {"-w": true, "-u": true, "-e": true, "-x": true, "-O": true, "-OO": true},
-	"ruby":    {"-w": true, "-u": true, "-e": true, "-x": true, "-O": true, "-OO": true},
-	"node":    {"-w": true, "-u": true, "-e": true, "-x": true, "-O": true, "-OO": true},
+	"bash":    {"-e": true, "-u": true, "-x": true, "-O": true, "-OO": true},
+	"sh":      {"-e": true, "-u": true, "-x": true},
+	"perl":    {"-w": true, "-T": true},
+	"python":  {"-u": true, "-x": true, "-O": true, "-OO": true},
+	"python3": {"-u": true, "-x": true, "-O": true, "-OO": true},
+	"ruby":    {"-w": true, "-x": true},
+	"node":    {},
 }
 
 // ValidateShebang checks whether a shebang line is safe to execute.

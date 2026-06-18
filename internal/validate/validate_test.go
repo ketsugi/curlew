@@ -187,6 +187,39 @@ func TestValidateShebang_RejectUnknownInterpreterWithArgs(t *testing.T) {
 	}
 }
 
+func TestValidateShebang_RejectPerlDashE(t *testing.T) {
+	err := ValidateShebang("#!/usr/bin/perl -e")
+	if err == nil {
+		t.Error("perl -e (execute string) should be rejected")
+	}
+}
+
+func TestValidateShebang_RejectRubyDashE(t *testing.T) {
+	err := ValidateShebang("#!/usr/bin/ruby -e")
+	if err == nil {
+		t.Error("ruby -e (execute string) should be rejected")
+	}
+}
+
+func TestValidateShebang_RejectNodeDashE(t *testing.T) {
+	err := ValidateShebang("#!/usr/bin/node -e")
+	if err == nil {
+		t.Error("node -e (evaluate) should be rejected")
+	}
+}
+
+func TestValidateShebang_AcceptPerlDashT(t *testing.T) {
+	if err := ValidateShebang("#!/usr/bin/perl -T"); err != nil {
+		t.Errorf("perl -T (taint mode) should be safe, got: %v", err)
+	}
+}
+
+func TestValidateShebang_AcceptRubyDashW(t *testing.T) {
+	if err := ValidateShebang("#!/usr/bin/ruby -w"); err != nil {
+		t.Errorf("ruby -w (warnings) should be safe, got: %v", err)
+	}
+}
+
 // --- HasInjectionPatterns ---
 
 func TestHasInjectionPatterns_IgnorePrevious(t *testing.T) {
