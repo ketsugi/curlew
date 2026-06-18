@@ -279,6 +279,49 @@ func TestBinaryFileRejected(t *testing.T) {
 	}
 }
 
+// --- Homograph detection ---
+
+func TestHomograph_WarnsOnCyrillicHostname(t *testing.T) {
+	// URL with Cyrillic і (U+0456) in hostname — looks like "github.com"
+	// The download will fail (no such host), but the warning should appear first.
+	out, _ := run(t, "n", nil, "https://gіthub.com/install.sh")
+
+	if !strings.Contains(out, "suspicious characters") {
+		t.Errorf("expected homograph warning, got:\n%s", out)
+	}
+	if !strings.Contains(out, "CYRILLIC") {
+		t.Errorf("expected character identification, got:\n%s", out)
+	}
+}
+
+func TestHomograph_NoWarningForCleanURL(t *testing.T) {
+	dir := t.TempDir()
+	script := writeScript(t, dir, "s.sh", "#!/bin/bash\necho hi\n")
+
+	out, _ := run(t, "nnn", nil, script)
+
+	if strings.Contains(out, "suspicious characters") {
+		t.Errorf("unexpected homograph warning for local file:\n%s", out)
+	}
+}
+
+func TestHomograph_NoWarningForASCIIURL(t *testing.T) {
+	// A valid ASCII URL that will fail to download — but no warning should appear
+	out, _ := run(t, "", nil, "https://example.invalid/install.sh")
+
+	if strings.Contains(out, "suspicious characters") {
+		t.Errorf("unexpected homograph warning for ASCII URL:\n%s", out)
+	}
+}
+
+func TestHomograph_WarnsOnPunycode(t *testing.T) {
+	out, _ := run(t, "n", nil, "https://xn--github-c1a.com/install.sh")
+
+	if !strings.Contains(out, "suspicious characters") || !strings.Contains(out, "Punycode") {
+		t.Errorf("expected punycode warning, got:\n%s", out)
+	}
+}
+
 // --- Empty file ---
 
 func TestEmptyFileRejected(t *testing.T) {

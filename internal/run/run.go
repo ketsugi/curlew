@@ -6,6 +6,7 @@ import (
 	"os/exec"
 
 	"github.com/ketsugi/curlew/internal/config"
+	"github.com/ketsugi/curlew/internal/homograph"
 	"github.com/ketsugi/curlew/internal/validate"
 )
 
@@ -22,6 +23,19 @@ type Options struct {
 func Execute(opts Options) error {
 	if !opts.SkipTTY && !isTTY() {
 		return fmt.Errorf("curlew requires an interactive terminal")
+	}
+
+	// --- Check for homograph attacks in URL hostnames ---
+	if warnings := homograph.CheckURL(opts.Target); len(warnings) > 0 {
+		warn("Hostname contains suspicious characters (possible homograph attack):")
+		for _, w := range warnings {
+			if w.IsPunycode {
+				warn("  Punycode internationalized domain detected")
+			} else {
+				warn("  U+%04X (%s) — looks like %q", w.Rune, w.Name, w.LooksLike)
+			}
+		}
+		fmt.Fprintln(os.Stderr)
 	}
 
 	// --- Download or copy local file ---
