@@ -7,21 +7,28 @@ set -euo pipefail
 #
 # Usage: scripts/dev-shell.sh [zsh|bash]   (default: zsh)
 #
-# Inside the shell, `curlew` is bin/curlew from this repo and the hook is loaded,
-# so `curl ... | bash` routes through your working copy. Exit to return to normal.
+# Inside the shell, `curlew` is the Go binary built from this repo and the hook
+# is loaded, so `curl ... | bash` routes through your working copy. Exit to return
+# to normal.
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 shell="${1:-zsh}"
+
+# Build the binary if not already present
+if [[ ! -x "$REPO/bin/curlew-go" ]]; then
+  echo "Building curlew..."
+  go build -o "$REPO/bin/curlew-go" "$REPO/cmd/curlew/"
+fi
 
 case "$shell" in
   zsh)
     zdotdir="$(mktemp -d "${TMPDIR:-/tmp}/curlew-dev.XXXXXX")"
     trap 'rm -rf "$zdotdir"' EXIT
     cat > "$zdotdir/.zshrc" <<EOF
-export PATH="$REPO/bin:\$PATH"
-eval "\$(curlew --hook zsh)"
+alias curlew="$REPO/bin/curlew-go"
+eval "\$($REPO/bin/curlew-go --hook zsh)"
 PROMPT='%F{yellow}curlew-dev%f %1~ %# '
-print -P "%F{yellow}curlew dev shell%f — \$(curlew --version), zsh hook loaded. exit to leave."
+print -P "%F{yellow}curlew dev shell%f — \$($REPO/bin/curlew-go --version), zsh hook loaded. exit to leave."
 EOF
     ZDOTDIR="$zdotdir" zsh -i
     ;;
@@ -29,10 +36,10 @@ EOF
     rcfile="$(mktemp "${TMPDIR:-/tmp}/curlew-dev.XXXXXX")"
     trap 'rm -f "$rcfile"' EXIT
     cat > "$rcfile" <<EOF
-export PATH="$REPO/bin:\$PATH"
-eval "\$(curlew --hook bash)"
+alias curlew="$REPO/bin/curlew-go"
+eval "\$($REPO/bin/curlew-go --hook bash)"
 PS1='curlew-dev \w \$ '
-echo "curlew dev shell — \$(curlew --version), bash hook loaded. exit to leave."
+echo "curlew dev shell — \$($REPO/bin/curlew-go --version), bash hook loaded. exit to leave."
 EOF
     bash --rcfile "$rcfile" -i
     ;;

@@ -1,3 +1,4 @@
 .DS_Store
 dist/
 .omc/
+bin/curlew-go
