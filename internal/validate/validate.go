@@ -138,7 +138,12 @@ func ValidateShebang(line string) error {
 func GetInterpreter(line string) []string {
 	if strings.HasPrefix(line, "#!") {
 		interpStr := strings.TrimSpace(line[2:])
-		return strings.Fields(interpStr)
+		if fields := strings.Fields(interpStr); len(fields) > 0 {
+			return fields
+		}
+		// A bare "#!" (no interpreter token) falls back to bash, matching the
+		// no-shebang case — otherwise the caller would try to exec the script
+		// file directly.
 	}
 	return []string{"bash"}
 }
