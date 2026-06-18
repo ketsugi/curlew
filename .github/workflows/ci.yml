@@ -24,11 +24,8 @@ jobs:
           go vet ./...
           test -z "$(gofmt -l .)"
 
-      - name: Install bats
-        run: sudo apt-get update && sudo apt-get install -y bats
-
       - name: Run tests
-        run: scripts/test-go.sh
+        run: go test ./... -count=1
 
       - name: Smoke-test dist artifact
         run: |

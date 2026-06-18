@@ -9,14 +9,12 @@ curlew is a Go CLI that wraps `curl | bash`: it downloads a script, validates it
 ## Commands
 
 ```bash
-scripts/test-go.sh              # build + unit tests + integration tests
-go test ./...                   # Go unit tests only
+go test ./...                   # all tests (unit + e2e integration)
 go build -o bin/curlew-go ./cmd/curlew/  # build locally
 scripts/build-dist.sh           # build dist/curlew release artifact
-bats test/                      # integration tests (requires bin/curlew-go)
 ```
 
-Tests require bats-core (`brew install bats-core` or `apt install bats`) for integration tests. Go tests use the standard `go test` toolchain.
+All tests run via `go test` — no external test framework required.
 
 ## Architecture
 
@@ -25,8 +23,10 @@ cmd/curlew/main.go              — entrypoint (cobra CLI framework)
 internal/hook/                  — shell hook string constants
 internal/validate/              — pure validation functions (MIME, null bytes,
                                   injection patterns, shebang, interpreter)
-internal/ai/                    — AI backend resolution from env vars
+internal/ai/                    — AI backend resolution from config
+internal/config/                — TOML config loading (XDG, env override)
 internal/run/                   — interactive flow orchestration + terminal helpers
+e2e/                            — integration tests (builds + execs the binary)
 ```
 
 ### Packages
