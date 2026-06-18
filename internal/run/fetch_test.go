@@ -2,6 +2,7 @@ package run
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,6 +10,16 @@ import (
 	"strings"
 	"testing"
 )
+
+// requireNetwork skips the test if we can't bind a local port (e.g. sandbox).
+func requireNetwork(t *testing.T) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("cannot bind local port: %v", err)
+	}
+	ln.Close()
+}
 
 // fetchToString runs fetch into a fresh temp file and returns the written content.
 func fetchToString(t *testing.T, target string) (string, error) {
@@ -29,6 +40,7 @@ func fetchToString(t *testing.T, target string) (string, error) {
 }
 
 func TestFetch_HTTPSuccess(t *testing.T) {
+	requireNetwork(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "#!/bin/bash\necho hi\n")
 	}))
@@ -44,6 +56,7 @@ func TestFetch_HTTPSuccess(t *testing.T) {
 }
 
 func TestFetch_HTTPNon200(t *testing.T) {
+	requireNetwork(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -59,6 +72,7 @@ func TestFetch_HTTPNon200(t *testing.T) {
 }
 
 func TestFetch_FollowsRedirect(t *testing.T) {
+	requireNetwork(t)
 	final := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "redirected-content")
 	}))
@@ -78,6 +92,7 @@ func TestFetch_FollowsRedirect(t *testing.T) {
 }
 
 func TestFetch_SizeCap(t *testing.T) {
+	requireNetwork(t)
 	old := maxDownloadBytes
 	maxDownloadBytes = 16
 	defer func() { maxDownloadBytes = old }()
@@ -97,6 +112,7 @@ func TestFetch_SizeCap(t *testing.T) {
 }
 
 func TestFetch_HTTPEmpty(t *testing.T) {
+	requireNetwork(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// empty body
 	}))
