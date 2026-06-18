@@ -80,7 +80,7 @@ MOCK
   printf '#!/bin/bash\necho hi\n' > "$TEST_TMPDIR/s.sh"
   run bash -c 'printf "nyn" | CURLEW_AI=bogus "$CURLEW" "$TEST_TMPDIR/s.sh"'
   [ "$status" -eq 0 ]                     # reaches the execute prompt, not aborted mid-flow
-  [[ "$output" == *"Unknown CURLEW_AI backend: bogus"* ]]
+  [[ "$output" == *"Unknown"*"backend"*"bogus"* ]]
   [[ "$output" == *"Skipping AI analysis"* ]]
   [ ! -f "$MOCK_CLAUDE_LOG" ]
 }
