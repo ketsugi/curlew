@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   test:
@@ -24,8 +25,21 @@ jobs:
           go vet ./...
           test -z "$(gofmt -l .)"
 
-      - name: Run tests
-        run: go test ./... -count=1
+      - name: Run tests with coverage
+        run: go test ./... -count=1 -coverprofile=coverage.out -covermode=atomic
+
+      - name: Report coverage
+        if: github.event_name == 'pull_request'
+        run: |
+          total=$(go tool cover -func=coverage.out | grep ^total | awk '{print $3}')
+          echo "### Test coverage: ${total}" >> $GITHUB_STEP_SUMMARY
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "**Coverage:** ${total}" \
+            --edit-last || \
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "**Coverage:** ${total}"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Smoke-test dist artifact
         run: |
