@@ -3,7 +3,7 @@
 
 setup() {
   CURLEW_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
-  CURLEW="${CURLEW:-$CURLEW_ROOT/bin/curlew}"
+  CURLEW="${CURLEW:-$CURLEW_ROOT/bin/curlew-go}"
 
   # Shared regex — must match the pattern used in the hook code.
   # If the hook regex changes, update it here.

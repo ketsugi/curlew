@@ -4,7 +4,7 @@
 # Uses a mock claude command to verify analysis is invoked (or skipped).
 
 setup() {
-  CURLEW="${CURLEW:-$BATS_TEST_DIRNAME/../bin/curlew}"
+  CURLEW="${CURLEW:-$BATS_TEST_DIRNAME/../bin/curlew-go}"
   TEST_TMPDIR="$(mktemp -d)"
 
   # Create mock claude that logs invocation
