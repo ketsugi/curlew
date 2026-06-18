@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -367,13 +366,4 @@ func info(format string, args ...any) {
 
 func warn(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "\033[1;33mwarning:\033[0m "+format+"\n", args...)
-}
-
-// AbsPath resolves a relative path. Exported for use by cmd.
-func AbsPath(path string) string {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return path
-	}
-	return abs
 }
