@@ -25,12 +25,12 @@ jobs:
           test -z "$(gofmt -l .)"
 
       - name: Run tests with coverage
-        run: go test ./... -count=1 -coverprofile=coverage.out -covermode=atomic
+        run: go test ./... -count=1 -coverprofile=coverage.txt
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24  # v5.4.3
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac  # v5.5.5
         with:
-          files: coverage.out
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Smoke-test dist artifact
         run: |
