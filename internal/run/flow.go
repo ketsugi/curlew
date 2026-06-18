@@ -8,14 +8,30 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/ketsugi/curlew/internal/ai"
 	"github.com/ketsugi/curlew/internal/validate"
 )
 
 const analysisThreshold = 20
+
+const (
+	// defaultMaxDownloadBytes caps how much curlew pulls from a remote URL so a
+	// hostile or runaway server can't fill the temp dir. Install scripts are
+	// small (KB-range); this ceiling is deliberately generous.
+	defaultMaxDownloadBytes = 25 << 20 // 25 MiB
+	// downloadTimeout bounds the whole HTTP request, defending against a
+	// stalled / slow-loris server.
+	downloadTimeout = 30 * time.Second
+)
+
+// maxDownloadBytes is a var (not const) so tests can shrink it.
+var maxDownloadBytes int64 = defaultMaxDownloadBytes
 
 // Options holds the runtime configuration for an execution flow.
 type Options struct {
@@ -32,11 +48,23 @@ func Execute(opts Options) error {
 	}
 
 	// --- Download or copy local file ---
-	tmpfile, err := acquire(opts.Target)
+	tmp, err := os.CreateTemp("", "curlew.*")
 	if err != nil {
 		return err
 	}
+	tmpfile := tmp.Name()
+	// Remove the temp file on normal return AND on interrupt. os.Exit and
+	// signal-driven termination skip defers, so a SIGINT during inspection
+	// would otherwise leave the downloaded untrusted script in TMPDIR.
 	defer os.Remove(tmpfile)
+	stopCleanup := cleanupOnInterrupt(tmpfile)
+	defer stopCleanup()
+
+	if err := fetch(opts.Target, tmp); err != nil {
+		tmp.Close()
+		return err
+	}
+	tmp.Close()
 
 	// --- Step 1: Validate ---
 	mime, err := validate.MIMEType(tmpfile)
@@ -60,7 +88,10 @@ func Execute(opts Options) error {
 	info("Script is %d lines", lineCount)
 
 	// --- Step 2: Visual inspection ---
-	yes, _ := confirm("\033[1;33mOpen script in less for inspection? [Y/n]\033[0m ", true)
+	yes, err := confirm("\033[1;33mOpen script in less for inspection? [Y/n]\033[0m ", true)
+	if err != nil {
+		return err
+	}
 	if yes {
 		pager := os.Getenv("PAGER")
 		if pager == "" {
@@ -77,13 +108,17 @@ func Execute(opts Options) error {
 
 	// --- Step 3: AI analysis ---
 	doAnalyze := false
+	var cErr error
 	if lineCount > analysisThreshold {
-		doAnalyze, _ = confirm(
+		doAnalyze, cErr = confirm(
 			fmt.Sprintf("\033[1;33mScript is longer than %d lines. Run AI analysis? [Y/n]\033[0m ", analysisThreshold),
 			true,
 		)
 	} else {
-		doAnalyze, _ = confirm("\033[1;33mRun AI analysis? [y/N]\033[0m ", false)
+		doAnalyze, cErr = confirm("\033[1;33mRun AI analysis? [y/N]\033[0m ", false)
+	}
+	if cErr != nil {
+		return cErr
 	}
 
 	if doAnalyze {
@@ -97,7 +132,10 @@ func Execute(opts Options) error {
 
 	// --- Step 4: Confirm execution ---
 	fmt.Println()
-	yes, _ = confirm("\033[1;33mExecute this script? [y/N]\033[0m ", false)
+	yes, err = confirm("\033[1;33mExecute this script? [y/N]\033[0m ", false)
+	if err != nil {
+		return err
+	}
 	if !yes {
 		info("Aborted.")
 		return nil
@@ -124,57 +162,73 @@ func Execute(opts Options) error {
 	return cmd.Run()
 }
 
-func acquire(target string) (string, error) {
+// fetch writes the target (local file or remote URL) into dst.
+func fetch(target string, dst *os.File) error {
 	if fileExists(target) {
 		info("Reading local file: %s", target)
-		src, err := os.ReadFile(target)
+		src, err := os.Open(target)
 		if err != nil {
-			return "", err
+			return err
 		}
-		if len(src) == 0 {
-			return "", fmt.Errorf("File is empty")
-		}
-		tmp, err := os.CreateTemp("", "curlew.*")
+		defer src.Close()
+		n, err := io.Copy(dst, src)
 		if err != nil {
-			return "", err
+			return err
 		}
-		if _, err := tmp.Write(src); err != nil {
-			os.Remove(tmp.Name())
-			return "", err
+		if n == 0 {
+			return fmt.Errorf("File is empty")
 		}
-		tmp.Close()
-		return tmp.Name(), nil
+		return nil
 	}
 
 	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") || strings.HasPrefix(target, "ftp://") {
 		info("Downloading: %s", target)
-		resp, err := http.Get(target)
+		client := &http.Client{Timeout: downloadTimeout}
+		resp, err := client.Get(target)
 		if err != nil {
-			return "", fmt.Errorf("Failed to download: %s", target)
+			return fmt.Errorf("Failed to download: %s", target)
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != 200 {
-			return "", fmt.Errorf("Failed to download: %s (HTTP %d)", target, resp.StatusCode)
+			return fmt.Errorf("Failed to download: %s (HTTP %d)", target, resp.StatusCode)
 		}
-		tmp, err := os.CreateTemp("", "curlew.*")
+		// Bound the read so a hostile or runaway server can't fill the temp dir.
+		// Read one byte past the limit to detect an over-size body.
+		n, err := io.Copy(dst, io.LimitReader(resp.Body, maxDownloadBytes+1))
 		if err != nil {
-			return "", err
+			return err
 		}
-		if _, err := io.Copy(tmp, resp.Body); err != nil {
-			os.Remove(tmp.Name())
-			return "", err
+		if n > maxDownloadBytes {
+			return fmt.Errorf("Download exceeds %d bytes — refusing to proceed", maxDownloadBytes)
 		}
-		tmp.Close()
-
-		fi, _ := os.Stat(tmp.Name())
-		if fi == nil || fi.Size() == 0 {
-			os.Remove(tmp.Name())
-			return "", fmt.Errorf("File is empty")
+		if n == 0 {
+			return fmt.Errorf("File is empty")
 		}
-		return tmp.Name(), nil
+		return nil
 	}
 
-	return "", fmt.Errorf("Not a valid URL or local file: %s", target)
+	return fmt.Errorf("Not a valid URL or local file: %s", target)
+}
+
+// cleanupOnInterrupt removes path if the process is interrupted (SIGINT/SIGTERM),
+// since deferred cleanup does not run on signal-driven exit. The returned stop
+// function deregisters the handler on normal completion.
+func cleanupOnInterrupt(path string) (stop func()) {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-sigCh:
+			os.Remove(path)
+			os.Exit(130)
+		case <-done:
+		}
+	}()
+	return func() {
+		signal.Stop(sigCh)
+		close(done)
+	}
 }
 
 func runAnalysis(tmpfile string, forceAnalyze bool) error {

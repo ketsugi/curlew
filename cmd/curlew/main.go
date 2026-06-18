@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -32,6 +33,9 @@ func main() {
 	rootCmd.Version = version
 
 	if err := rootCmd.Execute(); err != nil {
+		if errors.Is(err, run.ErrInterrupted) {
+			os.Exit(130)
+		}
 		fmt.Fprintf(os.Stderr, "\033[1;31merror:\033[0m %s\n", err)
 		os.Exit(1)
 	}
