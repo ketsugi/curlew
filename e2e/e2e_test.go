@@ -313,6 +313,56 @@ func TestNonBashShebangExecuted(t *testing.T) {
 	}
 }
 
+// --- Config ---
+
+func TestInitConfig(t *testing.T) {
+	dir := t.TempDir()
+	out, code := run(t, "", []string{"XDG_CONFIG_HOME=" + dir}, "--init-config")
+
+	if code != 0 {
+		t.Errorf("expected exit 0, got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "Wrote config template") {
+		t.Errorf("expected success message, got:\n%s", out)
+	}
+
+	configPath := filepath.Join(dir, "curlew", "config.toml")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("config file not created: %v", err)
+	}
+	if !strings.Contains(string(data), "threshold") {
+		t.Error("config template missing 'threshold' field")
+	}
+}
+
+func TestInitConfigAlreadyExists(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "curlew"), 0o755)
+	os.WriteFile(filepath.Join(dir, "curlew", "config.toml"), []byte("existing"), 0o644)
+
+	out, code := run(t, "", []string{"XDG_CONFIG_HOME=" + dir}, "--init-config")
+
+	if code == 0 {
+		t.Error("expected non-zero exit when config exists")
+	}
+	if !strings.Contains(out, "already exists") {
+		t.Errorf("expected 'already exists' error, got:\n%s", out)
+	}
+}
+
+// --- Version ---
+
+func TestVersion(t *testing.T) {
+	out, code := run(t, "", nil, "--version")
+	if code != 0 {
+		t.Errorf("expected exit 0, got %d", code)
+	}
+	if !strings.Contains(out, "curlew") {
+		t.Errorf("expected version string, got:\n%s", out)
+	}
+}
+
 // --- Invalid input ---
 
 func TestNonExistentFileRejected(t *testing.T) {
