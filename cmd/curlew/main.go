@@ -17,6 +17,10 @@ var version = "0.3.1"
 var forceAnalyze bool
 
 func main() {
+	os.Exit(mainRun())
+}
+
+func mainRun() int {
 	rootCmd := &cobra.Command{
 		Use:           "curlew [url-or-file]",
 		Short:         "Inspect before you execute",
@@ -36,11 +40,12 @@ func main() {
 
 	if err := rootCmd.Execute(); err != nil {
 		if errors.Is(err, run.ErrInterrupted) {
-			os.Exit(130)
+			return 130
 		}
 		fmt.Fprintf(os.Stderr, "\033[1;31merror:\033[0m %s\n", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 func execute(cmd *cobra.Command, args []string) error {

@@ -35,11 +35,22 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	// Merge e2e coverage into a text profile if GOCOVERDIR was requested by CI.
+	// Merge e2e coverage into a text profile if requested by CI.
 	if dest := os.Getenv("E2E_COVERAGE_OUT"); dest != "" {
-		merge := exec.Command("go", "tool", "covdata", "textfmt", "-i="+coverDir, "-o="+dest)
-		merge.Stderr = os.Stderr
-		merge.Run()
+		entries, _ := os.ReadDir(coverDir)
+		fmt.Fprintf(os.Stderr, "e2e coverage: %d files in %s\n", len(entries), coverDir)
+		if len(entries) > 0 {
+			merge := exec.Command("go", "tool", "covdata", "textfmt", "-i="+coverDir, "-o="+dest)
+			merge.Stderr = os.Stderr
+			if err := merge.Run(); err != nil {
+				fmt.Fprintf(os.Stderr, "e2e coverage merge failed: %v\n", err)
+			} else {
+				fi, _ := os.Stat(dest)
+				fmt.Fprintf(os.Stderr, "e2e coverage written: %s (%d bytes)\n", dest, fi.Size())
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "e2e coverage: no data collected (binary may not support -cover)\n")
+		}
 	}
 
 	os.Exit(code)
@@ -221,6 +232,7 @@ func TestRejectNonInteractiveWithoutSkip(t *testing.T) {
 			filtered = append(filtered, e)
 		}
 	}
+	filtered = append(filtered, "GOCOVERDIR="+coverDir)
 	cmd.Env = filtered
 	out, err := cmd.CombinedOutput()
 	if err == nil {
@@ -298,6 +310,56 @@ func TestNonBashShebangExecuted(t *testing.T) {
 	}
 	if !strings.Contains(out, "PYTHON_EXECUTED") {
 		t.Errorf("expected script output via python3 interpreter, got:\n%s", out)
+	}
+}
+
+// --- Config ---
+
+func TestInitConfig(t *testing.T) {
+	dir := t.TempDir()
+	out, code := run(t, "", []string{"XDG_CONFIG_HOME=" + dir}, "--init-config")
+
+	if code != 0 {
+		t.Errorf("expected exit 0, got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "Wrote config template") {
+		t.Errorf("expected success message, got:\n%s", out)
+	}
+
+	configPath := filepath.Join(dir, "curlew", "config.toml")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("config file not created: %v", err)
+	}
+	if !strings.Contains(string(data), "threshold") {
+		t.Error("config template missing 'threshold' field")
+	}
+}
+
+func TestInitConfigAlreadyExists(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "curlew"), 0o755)
+	os.WriteFile(filepath.Join(dir, "curlew", "config.toml"), []byte("existing"), 0o644)
+
+	out, code := run(t, "", []string{"XDG_CONFIG_HOME=" + dir}, "--init-config")
+
+	if code == 0 {
+		t.Error("expected non-zero exit when config exists")
+	}
+	if !strings.Contains(out, "already exists") {
+		t.Errorf("expected 'already exists' error, got:\n%s", out)
+	}
+}
+
+// --- Version ---
+
+func TestVersion(t *testing.T) {
+	out, code := run(t, "", nil, "--version")
+	if code != 0 {
+		t.Errorf("expected exit 0, got %d", code)
+	}
+	if !strings.Contains(out, "curlew") {
+		t.Errorf("expected version string, got:\n%s", out)
 	}
 }
 
