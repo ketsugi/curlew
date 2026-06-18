@@ -111,9 +111,16 @@ All changes go through pull requests — direct pushes to `main` are blocked.
 
 ## Releasing
 
-1. Bump `version` in `cmd/curlew/main.go`
-2. Commit: `git commit -am "chore: bump version to X.Y.Z"`
-3. Tag: `git tag vX.Y.Z`
-4. Push: `git push origin main --tags`
+```bash
+scripts/release.sh patch    # 0.3.1 → 0.3.2
+scripts/release.sh minor    # 0.3.1 → 0.4.0
+scripts/release.sh major    # 0.3.1 → 1.0.0
+scripts/release.sh 1.2.3    # explicit version
+```
 
-The GitHub Actions workflow builds the binary for all platforms and attaches them with SHA-256 checksums.
+The script bumps the version in `cmd/curlew/main.go`, pushes a branch, and opens a PR. After you merge the PR, the rest is automatic:
+
+1. `tag-release.yml` detects the version change on main and creates a `vX.Y.Z` tag
+2. `release.yml` triggers on the new tag, cross-compiles binaries for all platforms, publishes a GitHub Release with checksums, and dispatches a Homebrew tap update
+
+No manual tagging or pushing required — just merge the PR.

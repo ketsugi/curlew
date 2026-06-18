@@ -1,0 +1,42 @@
+name: Tag release on version bump
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cmd/curlew/main.go'
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          fetch-depth: 2
+
+      - name: Detect version change
+        id: version
+        run: |
+          new=$(grep 'var version' cmd/curlew/main.go | sed 's/.*"\(.*\)"/\1/')
+          old=$(git show HEAD~1:cmd/curlew/main.go 2>/dev/null | grep 'var version' | sed 's/.*"\(.*\)"/\1/' || echo "")
+          echo "old=$old"
+          echo "new=$new"
+          if [[ "$new" != "$old" && -n "$new" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "tag=v$new" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push tag
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          tag="${{ steps.version.outputs.tag }}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag "$tag"
+          git push origin "$tag"
+          echo "Tagged $tag"
