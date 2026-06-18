@@ -107,6 +107,57 @@ func TestLoad_AICmdOverridesAll(t *testing.T) {
 	}
 }
 
+func TestLoad_ThresholdEnvOverride(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("CURLEW_AI", "")
+	t.Setenv("CURLEW_MODEL", "")
+	t.Setenv("CURLEW_AI_CMD", "")
+	t.Setenv("CURLEW_THRESHOLD", "50")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Threshold != 50 {
+		t.Errorf("expected threshold=50, got %d", cfg.Threshold)
+	}
+}
+
+func TestLoad_ThresholdZeroMeansAlwaysSuggest(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("CURLEW_AI", "")
+	t.Setenv("CURLEW_MODEL", "")
+	t.Setenv("CURLEW_AI_CMD", "")
+	t.Setenv("CURLEW_THRESHOLD", "0")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Threshold != 0 {
+		t.Errorf("expected threshold=0, got %d", cfg.Threshold)
+	}
+}
+
+func TestLoad_ThresholdInvalidIgnored(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("CURLEW_AI", "")
+	t.Setenv("CURLEW_MODEL", "")
+	t.Setenv("CURLEW_AI_CMD", "")
+	t.Setenv("CURLEW_THRESHOLD", "notanumber")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Threshold != 20 {
+		t.Errorf("expected default threshold=20 when env invalid, got %d", cfg.Threshold)
+	}
+}
+
 func TestLoad_InvalidTOML(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)

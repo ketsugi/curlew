@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/BurntSushi/toml"
 )
@@ -48,6 +49,11 @@ func Load() (Config, error) {
 	}
 	if v := os.Getenv("CURLEW_AI_CMD"); v != "" {
 		cfg.AICmd = v
+	}
+	if v := os.Getenv("CURLEW_THRESHOLD"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			cfg.Threshold = n
+		}
 	}
 
 	return cfg, nil
