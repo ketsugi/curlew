@@ -68,6 +68,7 @@ The AI analysis defaults to the `claude` CLI, but you can point curlew at any to
 | `CURLEW_AI` | Backend preset: `claude` or `ollama` | `claude` |
 | `CURLEW_MODEL` | Model name passed to the preset | `sonnet` (claude); required for `ollama` |
 | `CURLEW_AI_CMD` | Raw command override; wins over any preset | — |
+| `CURLEW_THRESHOLD` | Auto-suggest AI analysis above this many lines | `20` |
 
 ```bash
 # Local model via ollama
