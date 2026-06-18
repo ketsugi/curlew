@@ -8,17 +8,6 @@ A safe wrapper for `curl | bash` that lets you validate, inspect, and optionally
 
 Named after the [curlew](https://en.wikipedia.org/wiki/Curlew) (a bird), and also a pun on **curl** + re**view**.
 
-## The irony
-
-Yes, one of the install methods involves downloading a script from the internet. We encourage you to vet curlew with itself:
-
-```bash
-# After installing, verify what you just put on your system:
-curlew "$(which curlew)"
-```
-
-We'd respect that.
-
 ## Install
 
 ### Homebrew (macOS & Linux)
