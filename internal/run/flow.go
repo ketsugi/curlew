@@ -127,13 +127,15 @@ func Execute(opts Options) error {
 func acquire(target string) (string, error) {
 	if fileExists(target) {
 		info("Reading local file: %s", target)
-		tmp, err := os.CreateTemp("", "curlew.*")
+		src, err := os.ReadFile(target)
 		if err != nil {
 			return "", err
 		}
-		src, err := os.ReadFile(target)
+		if len(src) == 0 {
+			return "", fmt.Errorf("File is empty")
+		}
+		tmp, err := os.CreateTemp("", "curlew.*")
 		if err != nil {
-			os.Remove(tmp.Name())
 			return "", err
 		}
 		if _, err := tmp.Write(src); err != nil {

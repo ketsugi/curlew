@@ -9,22 +9,11 @@ import (
 	"strings"
 )
 
+// Non-text/* types that are still acceptable script content.
+// The bash version accepted: text/* | application/x-shellscript | application/javascript
 var allowedMIMETypes = map[string]bool{
-	"text/plain":                  true,
-	"text/x-shellscript":         true,
-	"text/x-script.sh":           true,
-	"application/x-shellscript":  true,
-	"application/javascript":     true,
-	"text/javascript":            true,
-	"text/x-python":              true,
-	"text/x-perl":                true,
-	"text/x-ruby":                true,
-	"text/html":                  true,
-	"text/xml":                   true,
-	"text/x-c":                   true,
-	"text/x-script.python":       true,
-	"application/x-sh":           true,
-	"application/x-csh":          true,
+	"application/x-shellscript": true,
+	"application/javascript":    true,
 }
 
 // MIMEType detects the MIME type of the file at path.
