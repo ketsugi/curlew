@@ -44,8 +44,8 @@ func TestResolveCommand_Ollama(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := strings.Join(cmd, " ")
-	if got != "ollama run llama3" {
-		t.Errorf("expected 'ollama run llama3', got %q", got)
+	if got != "ollama run --nowordwrap llama3" {
+		t.Errorf("expected 'ollama run --nowordwrap llama3', got %q", got)
 	}
 }
 
