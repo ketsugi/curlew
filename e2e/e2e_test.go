@@ -356,6 +356,35 @@ func TestNonBashShebangExecuted(t *testing.T) {
 	}
 }
 
+// --- Ledger ---
+
+func TestList_EmptyLedger(t *testing.T) {
+	dir := t.TempDir()
+	out, code := run(t, "", []string{"XDG_STATE_HOME=" + dir}, "list")
+
+	if code != 0 {
+		t.Errorf("expected exit 0, got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "No scripts recorded") {
+		t.Errorf("expected empty-ledger message, got:\n%s", out)
+	}
+}
+
+func TestLedger_RecordedAfterExecution(t *testing.T) {
+	dir := t.TempDir()
+	stateDir := t.TempDir()
+	script := writeScript(t, dir, "hello.sh", "#!/bin/bash\necho hello\n")
+
+	// Execute a script (n=no inspect, n=no analyze, y=execute)
+	run(t, "nny", []string{"XDG_STATE_HOME=" + stateDir}, script)
+
+	// List should still be empty — local files aren't recorded (only URLs)
+	out, _ := run(t, "", []string{"XDG_STATE_HOME=" + stateDir}, "list")
+	if !strings.Contains(out, "No scripts recorded") {
+		t.Errorf("local files should not be recorded in ledger, got:\n%s", out)
+	}
+}
+
 // --- Config ---
 
 func TestInitConfig(t *testing.T) {

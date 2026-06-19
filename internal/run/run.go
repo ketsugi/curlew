@@ -1,12 +1,16 @@
 package run
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/ketsugi/curlew/internal/config"
 	"github.com/ketsugi/curlew/internal/homograph"
+	"github.com/ketsugi/curlew/internal/ledger"
 	"github.com/ketsugi/curlew/internal/validate"
 )
 
@@ -148,5 +152,35 @@ func Execute(opts Options) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	// --- Record to ledger ---
+	if isURL(opts.Target) {
+		recordToLedger(opts.Target, data)
+	}
+
+	return nil
+}
+
+func isURL(target string) bool {
+	return strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://")
+}
+
+func recordToLedger(url string, script []byte) {
+	ledgerDir := config.LedgerDir()
+	if ledgerDir == "" {
+		return
+	}
+	l, err := ledger.New(ledgerDir)
+	if err != nil {
+		return
+	}
+	h := sha256.Sum256(script)
+	l.Record(ledger.Entry{
+		URL:    url,
+		SHA256: hex.EncodeToString(h[:]),
+		Script: script,
+	})
 }

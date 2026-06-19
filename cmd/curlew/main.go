@@ -35,6 +35,8 @@ func mainRun() int {
 	rootCmd.Flags().String("hook", "", "Output shell hook code for eval (zsh or bash)")
 	rootCmd.Flags().Bool("init-config", false, "Write a default config template and exit")
 
+	rootCmd.AddCommand(listCmd())
+
 	rootCmd.SetVersionTemplate("curlew {{.Version}}\n")
 	rootCmd.Version = version
 
