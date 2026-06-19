@@ -41,7 +41,9 @@ func ResolveCommand(ai, model, aiCmd, claudeCmd string) ([]string, error) {
 		if model == "" {
 			return nil, fmt.Errorf("ai=ollama requires a model (e.g. model = \"llama3.2\")")
 		}
-		return []string{"ollama", "run", model}, nil
+		// --nowordwrap stops ollama from emitting cursor-control reflow
+		// sequences (ESC[K / ESC[nD) that glow renders as literal garbage.
+		return []string{"ollama", "run", "--nowordwrap", model}, nil
 
 	default:
 		return nil, fmt.Errorf("Unknown AI backend: %s (supported: claude, ollama; or set ai_cmd)", ai)
