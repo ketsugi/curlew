@@ -7,7 +7,10 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUTPUT="${1:-$REPO_ROOT/dist/curlew}"
 
+export GOPROXY="${GOPROXY:-direct}"
+
 mkdir -p "$(dirname "$OUTPUT")"
+rm -f "$OUTPUT"
 
 go build -o "$OUTPUT" "$REPO_ROOT/cmd/curlew/"
 
