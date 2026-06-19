@@ -183,4 +183,5 @@ func recordToLedger(url string, script []byte) {
 		SHA256: hex.EncodeToString(h[:]),
 		Script: script,
 	})
+	l.MarkExecuted(url)
 }

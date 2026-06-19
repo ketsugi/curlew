@@ -11,13 +11,14 @@ import (
 	"time"
 )
 
-// Entry represents a single recorded script execution.
+// Entry represents a single recorded script.
 type Entry struct {
 	URL      string    `json:"url"`
 	SHA256   string    `json:"sha256"`
 	FirstRun time.Time `json:"first_run"`
 	LastRun  time.Time `json:"last_run"`
 	RunCount int       `json:"run_count"`
+	Executed bool      `json:"executed"`
 	Script   []byte    `json:"-"`
 
 	// dirName is the hash-based directory name (not serialized)
@@ -37,9 +38,9 @@ func New(dir string) (*Ledger, error) {
 	return &Ledger{dir: dir}, nil
 }
 
-// Record adds or updates a ledger entry for the given script.
-// If an entry already exists for the same URL, it updates the SHA256,
-// LastRun, and RunCount while preserving FirstRun.
+// Record creates or updates a ledger entry for a script.
+// Updates the SHA256 and stores the script content. Does not mark the
+// entry as executed — call MarkExecuted for that.
 func (l *Ledger) Record(e Entry) error {
 	hash := urlHash(e.URL)
 	entryDir := filepath.Join(l.dir, hash)
@@ -55,12 +56,11 @@ func (l *Ledger) Record(e Entry) error {
 	if err == nil && existing != nil {
 		existing.SHA256 = e.SHA256
 		existing.LastRun = now
-		existing.RunCount++
 		e = *existing
+		e.SHA256 = existing.SHA256
 	} else {
 		e.FirstRun = now
 		e.LastRun = now
-		e.RunCount = 1
 	}
 
 	if err := l.writeMeta(metaPath, &e); err != nil {
@@ -75,6 +75,23 @@ func (l *Ledger) Record(e Entry) error {
 	}
 
 	return nil
+}
+
+// MarkExecuted records that the script at url was executed.
+// Increments RunCount and sets Executed to true.
+func (l *Ledger) MarkExecuted(url string) error {
+	hash := urlHash(url)
+	metaPath := filepath.Join(l.dir, hash, "metadata.json")
+
+	e, err := l.readMeta(metaPath)
+	if err != nil {
+		return err
+	}
+
+	e.Executed = true
+	e.RunCount++
+	e.LastRun = time.Now().Truncate(time.Millisecond)
+	return l.writeMeta(metaPath, e)
 }
 
 // Lookup finds the ledger entry for a URL, or returns nil if not found.
