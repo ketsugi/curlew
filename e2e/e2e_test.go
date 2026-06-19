@@ -402,6 +402,40 @@ func TestLedger_LocalFilesNotRecorded(t *testing.T) {
 	}
 }
 
+func TestAnalysisCache_SecondRunUsesCachedResult(t *testing.T) {
+	stateDir := t.TempDir()
+
+	srv := startTestServer(t, "#!/bin/bash\necho cached-test\n")
+
+	// First run: analyze (nyn = no inspect, yes analyze, no execute)
+	out1, _ := run(t, "nyn", []string{
+		"XDG_STATE_HOME=" + stateDir,
+		"CURLEW_AI_CMD=" + writeMockAI(t),
+	}, srv.URL+"/install.sh")
+
+	if !strings.Contains(out1, "Running AI analysis") {
+		t.Errorf("first run should call AI, got:\n%s", out1)
+	}
+
+	// Second run: same URL, same script — should hit cache
+	out2, _ := run(t, "nyn", []string{
+		"XDG_STATE_HOME=" + stateDir,
+		"CURLEW_AI_CMD=" + writeMockAI(t),
+	}, srv.URL+"/install.sh")
+
+	if !strings.Contains(out2, "cached") {
+		t.Errorf("second run should show cached analysis, got:\n%s", out2)
+	}
+}
+
+func writeMockAI(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	mock := filepath.Join(dir, "mock-ai")
+	os.WriteFile(mock, []byte("#!/bin/bash\necho 'Mock analysis result'\n"), 0o755)
+	return mock
+}
+
 func TestLedger_URLRecordedAfterExecution(t *testing.T) {
 	stateDir := t.TempDir()
 

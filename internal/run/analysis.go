@@ -3,6 +3,7 @@ package run
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -124,6 +125,7 @@ Script contents (delimited by %s_BEGIN/%s_END):
 
 	// Cache the analysis if successful and target is a URL
 	if aiErr == nil && isURL(target) && captured.Len() > 0 {
+		ensureLedgerEntry(target, content)
 		saveAnalysisToCache(target, cfg, captured.String())
 	}
 
@@ -182,6 +184,23 @@ func saveAnalysisToCache(url string, cfg config.Config, content string) {
 	l.SaveAnalysis(url, ledger.Analysis{
 		Content: content,
 		Backend: backend,
+	})
+}
+
+func ensureLedgerEntry(url string, scriptContent []byte) {
+	ledgerDir := config.LedgerDir()
+	if ledgerDir == "" {
+		return
+	}
+	l, err := ledger.New(ledgerDir)
+	if err != nil {
+		return
+	}
+	h := sha256.Sum256(scriptContent)
+	l.Record(ledger.Entry{
+		URL:    url,
+		SHA256: hex.EncodeToString(h[:]),
+		Script: scriptContent,
 	})
 }
 

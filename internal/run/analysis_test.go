@@ -11,6 +11,40 @@ import (
 	"github.com/ketsugi/curlew/internal/ledger"
 )
 
+func TestPagerCmd_Default(t *testing.T) {
+	t.Setenv("PAGER", "")
+	got := pagerCmd()
+	if got != "less -FRX" {
+		t.Errorf("expected default pager, got %q", got)
+	}
+}
+
+func TestPagerCmd_EnvOverride(t *testing.T) {
+	t.Setenv("PAGER", "more")
+	got := pagerCmd()
+	if got != "more" {
+		t.Errorf("expected PAGER override, got %q", got)
+	}
+}
+
+func TestGenerateSentinel_Format(t *testing.T) {
+	s := generateSentinel()
+	if !strings.HasPrefix(s, "SCRIPT_") {
+		t.Errorf("expected SCRIPT_ prefix, got %q", s)
+	}
+	if len(s) != len("SCRIPT_")+16 {
+		t.Errorf("expected 23 chars (SCRIPT_ + 16 hex), got %d: %q", len(s), s)
+	}
+}
+
+func TestGenerateSentinel_Unique(t *testing.T) {
+	s1 := generateSentinel()
+	s2 := generateSentinel()
+	if s1 == s2 {
+		t.Error("expected unique sentinels on consecutive calls")
+	}
+}
+
 // TestRunAnalysis_SentinelFencing verifies that the prompt sent to the AI
 // backend contains the sentinel boundary markers around the script content.
 // If this breaks, the injection-resistance fence disappears silently.
