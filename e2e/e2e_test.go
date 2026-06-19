@@ -436,6 +436,50 @@ func writeMockAI(t *testing.T) string {
 	return mock
 }
 
+func TestChangeDetection_UnchangedScript(t *testing.T) {
+	stateDir := t.TempDir()
+	srv := startTestServer(t, "#!/bin/bash\necho same\n")
+
+	// First run: creates ledger entry
+	run(t, "nnn", []string{"XDG_STATE_HOME=" + stateDir}, srv.URL+"/install.sh")
+
+	// Second run: same script — should say "Previously vetted"
+	out, _ := run(t, "nnn", []string{"XDG_STATE_HOME=" + stateDir}, srv.URL+"/install.sh")
+	if !strings.Contains(out, "Previously vetted") {
+		t.Errorf("expected 'Previously vetted' on unchanged script, got:\n%s", out)
+	}
+}
+
+func TestChangeDetection_ModifiedScript(t *testing.T) {
+	// Skip if can't bind
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("cannot bind local port: %v", err)
+	}
+	ln.Close()
+
+	stateDir := t.TempDir()
+
+	// Serve version 1, then switch to version 2
+	version := "#!/bin/bash\necho v1\n"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, version)
+	}))
+	t.Cleanup(srv.Close)
+
+	// First run: records v1
+	run(t, "nnn", []string{"XDG_STATE_HOME=" + stateDir}, srv.URL+"/install.sh")
+
+	// Change the script
+	version = "#!/bin/bash\necho v2\n"
+
+	// Second run: should warn about change
+	out, _ := run(t, "nnn", []string{"XDG_STATE_HOME=" + stateDir}, srv.URL+"/install.sh")
+	if !strings.Contains(out, "changed") {
+		t.Errorf("expected change warning, got:\n%s", out)
+	}
+}
+
 func TestLedger_URLRecordedAfterExecution(t *testing.T) {
 	stateDir := t.TempDir()
 
