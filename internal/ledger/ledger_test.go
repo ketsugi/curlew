@@ -86,12 +86,12 @@ func TestRecord_SetsTimestamps(t *testing.T) {
 	if e.LastRun.Before(before) || e.LastRun.After(after) {
 		t.Errorf("LastRun %v not between %v and %v", e.LastRun, before, after)
 	}
-	if e.RunCount != 1 {
-		t.Errorf("expected RunCount=1, got %d", e.RunCount)
+	if e.RunCount != 0 {
+		t.Errorf("expected RunCount=0 (not executed), got %d", e.RunCount)
 	}
 }
 
-func TestRecord_IncrementsRunCount(t *testing.T) {
+func TestRecord_UpdatesHashOnSameURL(t *testing.T) {
 	dir := t.TempDir()
 	l, _ := New(dir)
 
@@ -102,11 +102,41 @@ func TestRecord_IncrementsRunCount(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("expected 1 entry (same URL), got %d", len(entries))
 	}
-	if entries[0].RunCount != 2 {
-		t.Errorf("expected RunCount=2, got %d", entries[0].RunCount)
-	}
 	if entries[0].SHA256 != "v2" {
 		t.Errorf("expected SHA256 updated to v2, got %q", entries[0].SHA256)
+	}
+	if entries[0].RunCount != 0 {
+		t.Errorf("expected RunCount=0 (Record doesn't increment), got %d", entries[0].RunCount)
+	}
+}
+
+func TestMarkExecuted(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := New(dir)
+
+	l.Record(Entry{URL: "https://example.com/install.sh", SHA256: "abc"})
+	l.MarkExecuted("https://example.com/install.sh")
+
+	entries, _ := l.List()
+	if !entries[0].Executed {
+		t.Error("expected Executed=true after MarkExecuted")
+	}
+	if entries[0].RunCount != 1 {
+		t.Errorf("expected RunCount=1, got %d", entries[0].RunCount)
+	}
+}
+
+func TestMarkExecuted_IncrementsOnRepeat(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := New(dir)
+
+	l.Record(Entry{URL: "https://example.com/install.sh", SHA256: "abc"})
+	l.MarkExecuted("https://example.com/install.sh")
+	l.MarkExecuted("https://example.com/install.sh")
+
+	entries, _ := l.List()
+	if entries[0].RunCount != 2 {
+		t.Errorf("expected RunCount=2, got %d", entries[0].RunCount)
 	}
 }
 
