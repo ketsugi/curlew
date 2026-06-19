@@ -116,6 +116,73 @@ func (l *Ledger) List() ([]Entry, error) {
 	return entries, nil
 }
 
+// Analysis holds a cached AI analysis result.
+type Analysis struct {
+	Content   string    `json:"content"`
+	Backend   string    `json:"backend"`
+	SHA256    string    `json:"sha256"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// SaveAnalysis stores an AI analysis result for a URL.
+// The analysis is associated with the current script hash so it can be
+// invalidated when the script changes.
+func (l *Ledger) SaveAnalysis(url string, a Analysis) error {
+	hash := urlHash(url)
+	entryDir := filepath.Join(l.dir, hash)
+
+	// Read current metadata to stamp the analysis with the script hash
+	metaPath := filepath.Join(entryDir, "metadata.json")
+	entry, err := l.readMeta(metaPath)
+	if err != nil {
+		return fmt.Errorf("no ledger entry for %s", url)
+	}
+
+	a.SHA256 = entry.SHA256
+	a.CreatedAt = time.Now().Truncate(time.Millisecond)
+
+	data, err := json.MarshalIndent(a, "", "  ")
+	if err != nil {
+		return err
+	}
+	return atomicWrite(filepath.Join(entryDir, "analysis.json"), data)
+}
+
+// GetAnalysis retrieves the cached analysis for a URL.
+// Returns nil if no analysis is cached or if the script has changed since
+// the analysis was created (hash mismatch invalidates the cache).
+func (l *Ledger) GetAnalysis(url string) (*Analysis, error) {
+	hash := urlHash(url)
+	entryDir := filepath.Join(l.dir, hash)
+
+	analysisPath := filepath.Join(entryDir, "analysis.json")
+	data, err := os.ReadFile(analysisPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var a Analysis
+	if err := json.Unmarshal(data, &a); err != nil {
+		return nil, nil
+	}
+
+	// Invalidate if the script hash has changed
+	metaPath := filepath.Join(entryDir, "metadata.json")
+	entry, err := l.readMeta(metaPath)
+	if err != nil {
+		return nil, nil
+	}
+	if a.SHA256 != entry.SHA256 {
+		os.Remove(analysisPath)
+		return nil, nil
+	}
+
+	return &a, nil
+}
+
 // GetScript returns the stored script content for an entry.
 // Returns an error if no script was stored.
 func (l *Ledger) GetScript(e Entry) ([]byte, error) {

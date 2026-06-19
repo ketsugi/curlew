@@ -1,19 +1,22 @@
 package run
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/ketsugi/curlew/internal/ai"
 	"github.com/ketsugi/curlew/internal/config"
+	"github.com/ketsugi/curlew/internal/ledger"
 	"github.com/ketsugi/curlew/internal/validate"
 )
 
-func runAnalysis(tmpfile string, forceAnalyze bool, cfg config.Config) error {
+func runAnalysis(tmpfile string, forceAnalyze bool, cfg config.Config, target string) error {
 	claudeCmd := os.Getenv("CURLEW_CLAUDE_CMD")
 	cmdParts, err := ai.ResolveCommand(cfg.AI, cfg.Model, cfg.AICmd, claudeCmd)
 	if err != nil {
@@ -35,6 +38,15 @@ func runAnalysis(tmpfile string, forceAnalyze bool, cfg config.Config) error {
 			return nil
 		}
 		warn("Proceeding anyway (--force-analyze).")
+	}
+
+	// Check analysis cache (only for URLs)
+	if !forceAnalyze && isURL(target) {
+		if cached := getCachedAnalysis(target); cached != nil {
+			info("Showing cached analysis (%s, %s)", cached.Backend, cached.CreatedAt.Format("2006-01-02"))
+			displayAnalysis(cached.Content)
+			return nil
+		}
 	}
 
 	info("Running AI analysis (%s)...", cmdParts[0])
@@ -66,7 +78,10 @@ Script contents (delimited by %s_BEGIN/%s_END):
 	aiCmd := exec.Command(cmdParts[0], cmdParts[1:]...)
 	aiCmd.Stdin = strings.NewReader(prompt)
 
+	// Capture output for caching while also displaying it
+	var captured bytes.Buffer
 	var aiErr error
+
 	if glowPath, err := exec.LookPath("glow"); err == nil {
 		width := termWidth(100)
 		glowCmd := exec.Command(glowPath, "-w", fmt.Sprintf("%d", width), "-p", "-")
@@ -76,13 +91,16 @@ Script contents (delimited by %s_BEGIN/%s_END):
 			return fmt.Errorf("failed to create AI output pipe: %w", err)
 		}
 		aiCmd.Stderr = os.Stderr
-		glowCmd.Stdin = pipe
+
+		// Tee AI output: one copy to glow for display, one to buffer for cache
+		tee := io.TeeReader(pipe, &captured)
+		glowCmd.Stdin = tee
 		glowCmd.Stdout = os.Stdout
 		glowCmd.Stderr = os.Stderr
 		glowCmd.Env = append(os.Environ(), fmt.Sprintf("PAGER=%s", pagerCmd()))
 
 		if err := glowCmd.Start(); err != nil {
-			aiCmd.Stdout = os.Stdout
+			aiCmd.Stdout = io.MultiWriter(os.Stdout, &captured)
 			aiErr = aiCmd.Run()
 		} else {
 			if err := aiCmd.Start(); err != nil {
@@ -93,7 +111,7 @@ Script contents (delimited by %s_BEGIN/%s_END):
 			glowCmd.Wait()
 		}
 	} else {
-		aiCmd.Stdout = os.Stdout
+		aiCmd.Stdout = io.MultiWriter(os.Stdout, &captured)
 		aiCmd.Stderr = os.Stderr
 		aiErr = aiCmd.Run()
 	}
@@ -104,9 +122,67 @@ Script contents (delimited by %s_BEGIN/%s_END):
 		warn("AI backend exited with an error: %s", aiErr)
 	}
 
+	// Cache the analysis if successful and target is a URL
+	if aiErr == nil && isURL(target) && captured.Len() > 0 {
+		saveAnalysisToCache(target, cfg, captured.String())
+	}
+
 	fmt.Fprintf(os.Stderr, "\033[2m(Note: AI analysis is advisory and can be fooled by adversarial scripts. It supplements, not replaces, manual inspection.)\033[0m\n\n")
 
 	return nil
+}
+
+func displayAnalysis(content string) {
+	fmt.Fprintf(os.Stderr, "\n\033[1;35m--- AI Analysis (cached) ---\033[0m\n\n")
+
+	if glowPath, err := exec.LookPath("glow"); err == nil {
+		width := termWidth(100)
+		cmd := exec.Command(glowPath, "-w", fmt.Sprintf("%d", width), "-p", "-")
+		cmd.Stdin = strings.NewReader(content)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Env = append(os.Environ(), fmt.Sprintf("PAGER=%s", pagerCmd()))
+		cmd.Run()
+	} else {
+		fmt.Print(content)
+	}
+
+	fmt.Fprintf(os.Stderr, "\n\033[1;35m--- End Analysis ---\033[0m\n")
+	fmt.Fprintf(os.Stderr, "\033[2m(Note: AI analysis is advisory and can be fooled by adversarial scripts. It supplements, not replaces, manual inspection.)\033[0m\n\n")
+}
+
+func getCachedAnalysis(url string) *ledger.Analysis {
+	ledgerDir := config.LedgerDir()
+	if ledgerDir == "" {
+		return nil
+	}
+	l, err := ledger.New(ledgerDir)
+	if err != nil {
+		return nil
+	}
+	a, _ := l.GetAnalysis(url)
+	return a
+}
+
+func saveAnalysisToCache(url string, cfg config.Config, content string) {
+	ledgerDir := config.LedgerDir()
+	if ledgerDir == "" {
+		return
+	}
+	l, err := ledger.New(ledgerDir)
+	if err != nil {
+		return
+	}
+
+	backend := cfg.AI + "/" + cfg.Model
+	if cfg.AICmd != "" {
+		backend = cfg.AICmd
+	}
+
+	l.SaveAnalysis(url, ledger.Analysis{
+		Content: content,
+		Backend: backend,
+	})
 }
 
 func generateSentinel() string {

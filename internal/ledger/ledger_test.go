@@ -226,6 +226,102 @@ func TestGetScript_NoScript(t *testing.T) {
 	}
 }
 
+// --- Analysis cache ---
+
+func TestSaveAnalysis_StoresContent(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := New(dir)
+	l.Record(Entry{URL: "https://example.com/install.sh", SHA256: "abc"})
+
+	err := l.SaveAnalysis("https://example.com/install.sh", Analysis{
+		Content: "This script installs foo.",
+		Backend: "claude/sonnet",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a, err := l.GetAnalysis("https://example.com/install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a == nil {
+		t.Fatal("expected analysis, got nil")
+	}
+	if a.Content != "This script installs foo." {
+		t.Errorf("content mismatch: got %q", a.Content)
+	}
+	if a.Backend != "claude/sonnet" {
+		t.Errorf("expected Backend=claude/sonnet, got %q", a.Backend)
+	}
+}
+
+func TestSaveAnalysis_StoresTimestamp(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := New(dir)
+	l.Record(Entry{URL: "https://example.com/install.sh", SHA256: "abc"})
+
+	before := time.Now().Truncate(time.Second)
+	l.SaveAnalysis("https://example.com/install.sh", Analysis{
+		Content: "Safe.",
+		Backend: "ollama/llama3",
+	})
+
+	a, _ := l.GetAnalysis("https://example.com/install.sh")
+	if a.CreatedAt.Before(before) {
+		t.Errorf("CreatedAt %v should be after %v", a.CreatedAt, before)
+	}
+}
+
+func TestGetAnalysis_NotFound(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := New(dir)
+
+	a, err := l.GetAnalysis("https://nonexistent.com/x.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a != nil {
+		t.Errorf("expected nil for missing analysis, got %+v", a)
+	}
+}
+
+func TestGetAnalysis_NoAnalysisStored(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := New(dir)
+	l.Record(Entry{URL: "https://example.com/install.sh", SHA256: "abc"})
+
+	a, err := l.GetAnalysis("https://example.com/install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a != nil {
+		t.Errorf("expected nil when no analysis saved, got %+v", a)
+	}
+}
+
+func TestSaveAnalysis_InvalidatedByNewHash(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := New(dir)
+	l.Record(Entry{URL: "https://example.com/install.sh", SHA256: "v1"})
+	l.SaveAnalysis("https://example.com/install.sh", Analysis{
+		Content: "Old analysis.",
+		Backend: "claude/sonnet",
+	})
+
+	// Re-record with a different hash (script changed)
+	l.Record(Entry{URL: "https://example.com/install.sh", SHA256: "v2"})
+
+	// Analysis should be invalidated
+	a, err := l.GetAnalysis("https://example.com/install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a != nil {
+		t.Errorf("expected nil after hash change, got %+v", a)
+	}
+}
+
 func TestRecord_AtomicWrite(t *testing.T) {
 	dir := t.TempDir()
 	l, _ := New(dir)
