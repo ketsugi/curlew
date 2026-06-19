@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -155,6 +156,25 @@ func TestLoad_ThresholdInvalidIgnored(t *testing.T) {
 	}
 	if cfg.Threshold != 20 {
 		t.Errorf("expected default threshold=20 when env invalid, got %d", cfg.Threshold)
+	}
+}
+
+func TestLedgerDir_XDGStateHome(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", "/tmp/test-state")
+	got := LedgerDir()
+	if got != "/tmp/test-state/curlew/ledger" {
+		t.Errorf("expected /tmp/test-state/curlew/ledger, got %q", got)
+	}
+}
+
+func TestLedgerDir_DefaultsToHome(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", "")
+	got := LedgerDir()
+	if got == "" {
+		t.Skip("no home directory available")
+	}
+	if !strings.Contains(got, ".local/state/curlew/ledger") {
+		t.Errorf("expected path containing .local/state/curlew/ledger, got %q", got)
 	}
 }
 
