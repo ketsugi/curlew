@@ -115,7 +115,7 @@ func Execute(opts Options) error {
 	}
 
 	if doAnalyze {
-		if err := runAnalysis(tmpfile, opts.ForceAnalyze, opts.Config); err != nil {
+		if err := runAnalysis(tmpfile, opts.ForceAnalyze, opts.Config, opts.Target); err != nil {
 			warn("%s", err)
 			warn("Skipping AI analysis.")
 		}
