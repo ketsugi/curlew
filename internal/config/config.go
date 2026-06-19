@@ -75,6 +75,18 @@ func filePath() string {
 	return filepath.Join(home, ".config", "curlew", "config.toml")
 }
 
+// LedgerDir returns the path to the ledger storage directory.
+func LedgerDir() string {
+	if xdg := os.Getenv("XDG_STATE_HOME"); xdg != "" {
+		return filepath.Join(xdg, "curlew", "ledger")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".local", "state", "curlew", "ledger")
+}
+
 // Template returns a commented config file template.
 const Template = `# curlew configuration
 # Place at: ~/.config/curlew/config.toml (or $XDG_CONFIG_HOME/curlew/config.toml)

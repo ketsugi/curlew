@@ -2,6 +2,9 @@ package e2e
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -74,6 +77,22 @@ func run(t *testing.T, stdin string, env []string, args ...string) (string, int)
 		}
 	}
 	return string(out), code
+}
+
+func startTestServer(t *testing.T, body string) *httptest.Server {
+	t.Helper()
+	// Skip if we can't bind a port (sandboxed environments)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("cannot bind local port: %v", err)
+	}
+	ln.Close()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, body)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
 }
 
 func writeScript(t *testing.T, dir, name, content string) string {
@@ -353,6 +372,51 @@ func TestNonBashShebangExecuted(t *testing.T) {
 	}
 	if !strings.Contains(out, "PYTHON_EXECUTED") {
 		t.Errorf("expected script output via python3 interpreter, got:\n%s", out)
+	}
+}
+
+// --- Ledger ---
+
+func TestList_EmptyLedger(t *testing.T) {
+	dir := t.TempDir()
+	out, code := run(t, "", []string{"XDG_STATE_HOME=" + dir}, "list")
+
+	if code != 0 {
+		t.Errorf("expected exit 0, got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "No scripts recorded") {
+		t.Errorf("expected empty-ledger message, got:\n%s", out)
+	}
+}
+
+func TestLedger_LocalFilesNotRecorded(t *testing.T) {
+	dir := t.TempDir()
+	stateDir := t.TempDir()
+	script := writeScript(t, dir, "hello.sh", "#!/bin/bash\necho hello\n")
+
+	run(t, "nny", []string{"XDG_STATE_HOME=" + stateDir}, script)
+
+	out, _ := run(t, "", []string{"XDG_STATE_HOME=" + stateDir}, "list")
+	if !strings.Contains(out, "No scripts recorded") {
+		t.Errorf("local files should not be recorded in ledger, got:\n%s", out)
+	}
+}
+
+func TestLedger_URLRecordedAfterExecution(t *testing.T) {
+	stateDir := t.TempDir()
+
+	srv := startTestServer(t, "#!/bin/bash\necho from-server\n")
+
+	// Execute from URL (n=no inspect, n=no analyze, y=execute)
+	run(t, "nny", []string{"XDG_STATE_HOME=" + stateDir}, srv.URL+"/install.sh")
+
+	// List should show the recorded entry
+	out, _ := run(t, "", []string{"XDG_STATE_HOME=" + stateDir}, "list")
+	if strings.Contains(out, "No scripts recorded") {
+		t.Errorf("expected script recorded after URL execution, got:\n%s", out)
+	}
+	if !strings.Contains(out, srv.URL) {
+		t.Errorf("expected URL in list output, got:\n%s", out)
 	}
 }
 
