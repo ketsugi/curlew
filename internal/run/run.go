@@ -79,8 +79,33 @@ func Execute(opts Options) error {
 	}
 	info("Script is %d lines", lineCount)
 
+	// --- Check for changes against ledger ---
+	data, err := os.ReadFile(tmpfile)
+	if err != nil {
+		return err
+	}
+	scriptHash := fmt.Sprintf("%x", sha256.Sum256(data))
+	changed := checkForChanges(opts.Target, scriptHash)
+
+	// Ensure a ledger entry exists for future change detection
+	if isURL(opts.Target) {
+		ensureLedgerEntry(opts.Target, data)
+	}
+
+	suggestInspect := true
+	suggestAnalyze := lineCount > opts.Config.Threshold
+
+	switch changed {
+	case changeUnchanged:
+		info("Previously vetted (unchanged since last run)")
+	case changeModified:
+		warn("This script has changed since you last examined it!")
+		suggestInspect = true
+		suggestAnalyze = true
+	}
+
 	// --- Step 2: Visual inspection ---
-	yes, err := confirm("\033[1;33mOpen script in less for inspection? [Y/n]\033[0m ", true)
+	yes, err := confirm("\033[1;33mOpen script in less for inspection? [Y/n]\033[0m ", suggestInspect)
 	if err != nil {
 		return err
 	}
@@ -99,14 +124,10 @@ func Execute(opts Options) error {
 	}
 
 	// --- Step 3: AI analysis ---
-	threshold := opts.Config.Threshold
 	doAnalyze := false
 	var cErr error
-	if lineCount > threshold {
-		doAnalyze, cErr = confirm(
-			fmt.Sprintf("\033[1;33mScript is longer than %d lines. Run AI analysis? [Y/n]\033[0m ", threshold),
-			true,
-		)
+	if suggestAnalyze {
+		doAnalyze, cErr = confirm("\033[1;33mRun AI analysis? [Y/n]\033[0m ", true)
 	} else {
 		doAnalyze, cErr = confirm("\033[1;33mRun AI analysis? [y/N]\033[0m ", false)
 	}
@@ -136,10 +157,6 @@ func Execute(opts Options) error {
 
 	// --- Execute ---
 	info("Executing...")
-	data, err := os.ReadFile(tmpfile)
-	if err != nil {
-		return err
-	}
 	shebang := firstLine(data)
 
 	if err := validate.ValidateShebang(shebang); err != nil {
