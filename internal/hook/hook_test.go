@@ -13,6 +13,8 @@ func TestZshHook(t *testing.T) {
 		"add-zsh-hook",
 		"CURLEW_BYPASS",
 		"preexec",
+		"subst_re",        // command-substitution form detection
+		`\$\((curl|wget)`, // the substitution pattern itself
 	}
 	for _, want := range checks {
 		if !strings.Contains(h, want) {
@@ -29,6 +31,8 @@ func TestBashHook(t *testing.T) {
 		"extdebug",
 		"CURLEW_BYPASS",
 		"BASH_COMMAND",
+		`\$\((curl|wget)`,  // command-substitution form detection
+		"cannot intercept", // warn-only message for that form
 	}
 	for _, want := range checks {
 		if !strings.Contains(h, want) {

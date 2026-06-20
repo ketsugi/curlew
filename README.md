@@ -115,9 +115,12 @@ eval "$(curlew --hook zsh)"
 eval "$(curlew --hook bash)"
 ```
 
-With the hook active, any `curl | bash`, `curl | sh`, `wget | bash`, or `wget | sh` command you type will be intercepted and routed through curlew for inspection before execution.
+With the hook active, two common forms are recognized:
 
-Note: the hook intercepts pipe-to-shell only. Process substitution (`bash <(curl ...)`), eval forms (`eval "$(curl ...)"`), and two-step downloads (`curl -o file && bash file`) are not covered.
+- **Pipe-to-shell** — `curl ... | bash`, `curl ... | sh`, `wget ... | bash`, etc. Intercepted and rerouted through curlew before anything runs (both zsh and bash).
+- **Command substitution** — `bash -c "$(curl ...)"` (the Homebrew installer's form). In **zsh** this is intercepted before the download runs. In **bash** it can't be blocked — the shell performs the substitution (running the download) before the hook can act — so curlew prints a warning with a pastable `curlew <url>` command to vet the script before its contents are trusted.
+
+Not covered: process substitution (`bash <(curl ...)`), `eval "$(curl ...)"`, and two-step download-then-run (`curl -o file && bash file`).
 
 To bypass the hook for a single command:
 
