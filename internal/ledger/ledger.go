@@ -54,10 +54,14 @@ func (l *Ledger) Record(e Entry) error {
 
 	existing, err := l.readMeta(metaPath)
 	if err == nil && existing != nil {
-		existing.SHA256 = e.SHA256
-		existing.LastRun = now
-		e = *existing
-		e.SHA256 = existing.SHA256
+		// Preserve history (FirstRun, RunCount, Executed) from the existing
+		// entry; keep the incoming SHA256 and Script. Don't assign e = *existing
+		// — that would discard the new script bytes (Script is not persisted in
+		// metadata, so existing.Script is always empty).
+		e.FirstRun = existing.FirstRun
+		e.RunCount = existing.RunCount
+		e.Executed = existing.Executed
+		e.LastRun = now
 	} else {
 		e.FirstRun = now
 		e.LastRun = now
@@ -246,5 +250,5 @@ func atomicWrite(path string, data []byte) error {
 func urlHash(rawURL string) string {
 	normalized := strings.TrimRight(rawURL, "/")
 	h := sha256.Sum256([]byte(normalized))
-	return hex.EncodeToString(h[:6])
+	return hex.EncodeToString(h[:16])
 }

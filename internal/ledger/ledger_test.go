@@ -67,6 +67,27 @@ func TestRecord_StoresScript(t *testing.T) {
 	}
 }
 
+func TestRecord_UpdatesStoredScript(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := New(dir)
+
+	url := "https://example.com/install.sh"
+	v1 := []byte("#!/bin/bash\necho v1\n")
+	v2 := []byte("#!/bin/bash\necho v2\n")
+
+	l.Record(Entry{URL: url, SHA256: "v1", Script: v1})
+	l.Record(Entry{URL: url, SHA256: "v2", Script: v2})
+
+	entries, _ := l.List()
+	got, err := l.GetScript(entries[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(v2) {
+		t.Errorf("expected stored script updated to v2, got %q", got)
+	}
+}
+
 func TestRecord_SetsTimestamps(t *testing.T) {
 	dir := t.TempDir()
 	l, _ := New(dir)
