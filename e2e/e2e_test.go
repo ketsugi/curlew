@@ -498,20 +498,24 @@ func TestLedger_URLRecordedAfterExecution(t *testing.T) {
 	}
 }
 
-// --- Config ---
+// --- Setup ---
 
-func TestInitConfig(t *testing.T) {
-	dir := t.TempDir()
-	out, code := run(t, "", []string{"XDG_CONFIG_HOME=" + dir}, "--init-config")
+func TestSetup_WritesConfigAndDetectsShell(t *testing.T) {
+	cfgDir := t.TempDir()
+	homeDir := t.TempDir()
+
+	// "n" declines the hook install; setup still writes the config.
+	out, code := run(t, "n\n", []string{
+		"XDG_CONFIG_HOME=" + cfgDir,
+		"HOME=" + homeDir,
+		"SHELL=/bin/zsh",
+	}, "setup")
 
 	if code != 0 {
 		t.Errorf("expected exit 0, got %d\noutput:\n%s", code, out)
 	}
-	if !strings.Contains(out, "Wrote config template") {
-		t.Errorf("expected success message, got:\n%s", out)
-	}
 
-	configPath := filepath.Join(dir, "curlew", "config.toml")
+	configPath := filepath.Join(cfgDir, "curlew", "config.toml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("config file not created: %v", err)
@@ -519,20 +523,125 @@ func TestInitConfig(t *testing.T) {
 	if !strings.Contains(string(data), "threshold") {
 		t.Error("config template missing 'threshold' field")
 	}
+	if !strings.Contains(out, "Detected shell: zsh") {
+		t.Errorf("expected shell detection, got:\n%s", out)
+	}
 }
 
-func TestInitConfigAlreadyExists(t *testing.T) {
-	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "curlew"), 0o755)
-	os.WriteFile(filepath.Join(dir, "curlew", "config.toml"), []byte("existing"), 0o644)
+func TestSetup_InstallsHook(t *testing.T) {
+	cfgDir := t.TempDir()
+	homeDir := t.TempDir()
 
-	out, code := run(t, "", []string{"XDG_CONFIG_HOME=" + dir}, "--init-config")
+	out, code := run(t, "y\n", []string{
+		"XDG_CONFIG_HOME=" + cfgDir,
+		"HOME=" + homeDir,
+		"SHELL=/usr/bin/bash",
+	}, "setup")
 
-	if code == 0 {
-		t.Error("expected non-zero exit when config exists")
+	if code != 0 {
+		t.Errorf("expected exit 0, got %d\noutput:\n%s", code, out)
 	}
-	if !strings.Contains(out, "already exists") {
-		t.Errorf("expected 'already exists' error, got:\n%s", out)
+
+	rc := filepath.Join(homeDir, ".bashrc")
+	data, err := os.ReadFile(rc)
+	if err != nil {
+		t.Fatalf(".bashrc not created: %v", err)
+	}
+	if !strings.Contains(string(data), "curlew --hook bash") {
+		t.Errorf("hook line not installed, got:\n%s", string(data))
+	}
+}
+
+func TestSetup_HookIdempotent(t *testing.T) {
+	cfgDir := t.TempDir()
+	homeDir := t.TempDir()
+	env := []string{
+		"XDG_CONFIG_HOME=" + cfgDir,
+		"HOME=" + homeDir,
+		"SHELL=/bin/zsh",
+	}
+
+	run(t, "y\n", env, "setup")
+	out, _ := run(t, "y\n", env, "setup")
+
+	if !strings.Contains(out, "already installed") {
+		t.Errorf("expected 'already installed' on second run, got:\n%s", out)
+	}
+
+	rc := filepath.Join(homeDir, ".zshrc")
+	data, _ := os.ReadFile(rc)
+	if c := strings.Count(string(data), "curlew --hook zsh"); c != 1 {
+		t.Errorf("expected hook line once, got %d", c)
+	}
+}
+
+func TestSetup_NonInteractiveSkipsHook(t *testing.T) {
+	cfgDir := t.TempDir()
+	homeDir := t.TempDir()
+
+	// Run setup WITHOUT CURLEW_SKIP_TTY_CHECK and with empty stdin, simulating
+	// a non-interactive invocation. The hook must NOT be installed silently.
+	cmd := exec.Command(binary, "setup")
+	cmd.Stdin = strings.NewReader("")
+	env := os.Environ()
+	filtered := make([]string, 0, len(env))
+	for _, e := range env {
+		if !strings.HasPrefix(e, "CURLEW_SKIP_TTY_CHECK=") {
+			filtered = append(filtered, e)
+		}
+	}
+	filtered = append(filtered,
+		"GOCOVERDIR="+coverDir,
+		"XDG_CONFIG_HOME="+cfgDir,
+		"HOME="+homeDir,
+		"SHELL=/bin/zsh",
+	)
+	cmd.Env = filtered
+	outB, _ := cmd.CombinedOutput()
+	out := string(outB)
+
+	if !strings.Contains(out, "Not an interactive terminal") {
+		t.Errorf("expected non-interactive skip message, got:\n%s", out)
+	}
+	if _, err := os.Stat(filepath.Join(homeDir, ".zshrc")); err == nil {
+		t.Error(".zshrc should NOT be created on non-interactive setup")
+	}
+}
+
+func TestSetup_UnsupportedShell(t *testing.T) {
+	cfgDir := t.TempDir()
+	homeDir := t.TempDir()
+
+	out, code := run(t, "", []string{
+		"XDG_CONFIG_HOME=" + cfgDir,
+		"HOME=" + homeDir,
+		"SHELL=/usr/bin/fish",
+	}, "setup")
+
+	if code != 0 {
+		t.Errorf("expected exit 0 (graceful), got %d", code)
+	}
+	if !strings.Contains(out, "Could not detect a supported shell") {
+		t.Errorf("expected unsupported-shell message, got:\n%s", out)
+	}
+}
+
+func TestInitConfig_DeprecatedRoutesToSetup(t *testing.T) {
+	cfgDir := t.TempDir()
+	homeDir := t.TempDir()
+
+	out, code := run(t, "n\n", []string{
+		"XDG_CONFIG_HOME=" + cfgDir,
+		"HOME=" + homeDir,
+		"SHELL=/bin/zsh",
+	}, "--init-config")
+
+	if code != 0 {
+		t.Errorf("expected exit 0, got %d\noutput:\n%s", code, out)
+	}
+	configPath := filepath.Join(cfgDir, "curlew", "config.toml")
+	if _, err := os.Stat(configPath); err != nil {
+		t.Errorf("config should still be written via --init-config: %v", err)
 	}
 }
 
