@@ -44,7 +44,7 @@ e2e/                            — integration tests (builds + execs the binary
 
 ### Shell hooks
 
-The hooks are shell code emitted by `curlew --hook {zsh,bash}` for `eval` into the user's shell. zsh uses a `preexec` hook; bash uses a `DEBUG` trap with `extdebug` (returning non-zero skips the command). Both detect `curl|wget ... | (ba)sh`, extract the URL, and re-route through curlew. Scope is deliberately pipe-to-shell only — process substitution, `eval`, and two-step download-then-run are out of scope. Bypass is `CURLEW_BYPASS=1`. The hooks are always shell code regardless of the binary's language.
+The hooks are shell code emitted by `curlew --hook {zsh,bash}` for `eval` into the user's shell. zsh uses a `preexec` hook; bash uses a `DEBUG` trap with `extdebug` (returning non-zero skips the command). Two forms are recognized: pipe-to-shell (`curl|wget ... | (ba)sh`) and command substitution (`(ba)sh -c "$(curl|wget ...)"`, e.g. the Homebrew installer). Both extract the URL and re-route through curlew. The asymmetry: zsh's `preexec` sees the raw line before any expansion, so both forms are intercepted cleanly; bash's DEBUG trap can block the pipe form but NOT the command-substitution form (bash runs the substitution during argument expansion, before the trap can return non-zero) — so for that form the bash hook is warn-only, printing a pastable `curlew <url>`. Out of scope: process substitution, `eval`, two-step download-then-run. Bypass is `CURLEW_BYPASS=1`. The hooks are always shell code regardless of the binary's language.
 
 ### Dist build
 

@@ -3,6 +3,7 @@ package e2e
 import (
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -95,6 +96,52 @@ __curlew_preexec 'curl -fsSL https://example.com/install.sh | bash'
 	}
 }
 
+func TestHookZshInterceptsCommandSubstitution(t *testing.T) {
+	if _, err := exec.LookPath("zsh"); err != nil {
+		t.Skip("zsh not installed")
+	}
+	hookOut, _ := run(t, "", nil, "--hook", "zsh")
+
+	// The Homebrew installer form: bash -c "$(curl ...)"
+	script := hookOut + `
+curlew() { print -r -- "STUB_HIT:$*"; }
+kill() { :; }
+__curlew_preexec '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+`
+	cmd := exec.Command("zsh", "-c", script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("zsh hook failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "STUB_HIT:https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh") {
+		t.Errorf("expected interception of command-substitution form, got:\n%s", out)
+	}
+}
+
+func TestHookBashWarnsCommandSubstitution(t *testing.T) {
+	hookOut, _ := run(t, "", nil, "--hook", "bash")
+
+	// Drive the REAL trap function (from the emitted hook) by setting
+	// BASH_COMMAND, which is what the trap reads. The warn-only path must emit
+	// a pastable `curlew <url>` and must NOT invoke the real curlew, since bash
+	// can't block this form.
+	script := hookOut + `
+curlew() { echo "SHOULD_NOT_RUN"; }
+BASH_COMMAND='/bin/bash -c "$(curl -fsSL https://example.com/install.sh)"' __curlew_trap_debug
+`
+	cmd := exec.Command("bash", "-c", script)
+	out, _ := cmd.CombinedOutput()
+	if !strings.Contains(string(out), "curlew https://example.com/install.sh") {
+		t.Errorf("expected pastable curlew command in warning, got:\n%s", out)
+	}
+	if !strings.Contains(string(out), "cannot intercept") {
+		t.Errorf("expected the warn-only explanation, got:\n%s", out)
+	}
+	if strings.Contains(string(out), "SHOULD_NOT_RUN") {
+		t.Error("bash warn-only path must not invoke curlew")
+	}
+}
+
 func TestHookZshSudoSkip(t *testing.T) {
 	if _, err := exec.LookPath("zsh"); err != nil {
 		t.Skip("zsh not installed")
@@ -176,6 +223,41 @@ func TestHookPatternNegative(t *testing.T) {
 			cmd := exec.Command("bash", "-c", fmt.Sprintf(`[[ %q =~ %s ]]`, tc.cmd, re))
 			if err := cmd.Run(); err == nil {
 				t.Errorf("pattern should NOT match %q", tc.cmd)
+			}
+		})
+	}
+}
+
+func TestHookSubstPattern(t *testing.T) {
+	// The hook's bash ERE is POSIX-ECMA-compatible for this pattern; Go's
+	// regexp evaluates it identically. Matching in-process avoids handing a
+	// command containing $(curl ...) to a shell, which would expand and run it.
+	substRe := regexp.MustCompile(`(^|[[:space:]])(/[^[:space:]]*)?(ba)?sh[[:space:]]+-c[[:space:]].*\$\((curl|wget)[[:space:]]`)
+
+	positives := []struct{ name, cmd string }{
+		{"homebrew", `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`},
+		{"plain bash -c curl", `bash -c "$(curl -fsSL https://example.com/i.sh)"`},
+		{"sh -c wget", `sh -c "$(wget -O- https://example.com/i.sh)"`},
+		{"usr/bin/sh", `/usr/bin/sh -c "$(curl https://x.com)"`},
+	}
+	for _, tc := range positives {
+		t.Run("match/"+tc.name, func(t *testing.T) {
+			if !substRe.MatchString(tc.cmd) {
+				t.Errorf("subst pattern should match %q", tc.cmd)
+			}
+		})
+	}
+
+	negatives := []struct{ name, cmd string }{
+		{"bash -c echo", `bash -c "echo hello"`},
+		{"no -c", `bash "$(curl https://x.com)"`},
+		{"git commit -c", `git commit -c HEAD`},
+		{"comment mention", `echo "run bash -c with curl"`},
+	}
+	for _, tc := range negatives {
+		t.Run("nomatch/"+tc.name, func(t *testing.T) {
+			if substRe.MatchString(tc.cmd) {
+				t.Errorf("subst pattern should NOT match %q", tc.cmd)
 			}
 		})
 	}
