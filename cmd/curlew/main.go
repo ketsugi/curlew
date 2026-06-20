@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/ketsugi/curlew/internal/config"
 	"github.com/ketsugi/curlew/internal/hook"
@@ -33,9 +32,11 @@ func mainRun() int {
 
 	rootCmd.Flags().BoolVar(&forceAnalyze, "force-analyze", false, "Run AI analysis even if prompt injection patterns are detected")
 	rootCmd.Flags().String("hook", "", "Output shell hook code for eval (zsh or bash)")
-	rootCmd.Flags().Bool("init-config", false, "Write a default config template and exit")
+	rootCmd.Flags().Bool("init-config", false, "Deprecated: use `curlew setup`")
+	_ = rootCmd.Flags().MarkDeprecated("init-config", "use `curlew setup` instead")
 
 	rootCmd.AddCommand(listCmd())
+	rootCmd.AddCommand(setupCmd())
 
 	rootCmd.SetVersionTemplate("curlew {{.Version}}\n")
 	rootCmd.Version = version
@@ -58,7 +59,7 @@ func execute(cmd *cobra.Command, args []string) error {
 
 	initConfig, _ := cmd.Flags().GetBool("init-config")
 	if initConfig {
-		return writeConfigTemplate()
+		return runSetup()
 	}
 
 	if len(args) == 0 {
@@ -88,27 +89,5 @@ func emitHook(shell string) error {
 	default:
 		return fmt.Errorf("Unsupported shell: %s (supported: zsh, bash)", shell)
 	}
-	return nil
-}
-
-func writeConfigTemplate() error {
-	path := config.FilePath()
-	if path == "" {
-		return fmt.Errorf("cannot determine config path (no home directory)")
-	}
-
-	if _, err := os.Stat(path); err == nil {
-		return fmt.Errorf("config file already exists: %s", path)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-
-	if err := os.WriteFile(path, []byte(config.Template), 0o644); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(os.Stderr, "Wrote config template to: %s\n", path)
 	return nil
 }

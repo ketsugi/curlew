@@ -81,13 +81,17 @@ CURLEW_AI_CMD="aichat -m openai:gpt-4o" curlew https://example.com/install.sh
 
 The backend reads the analysis prompt on stdin and writes markdown to stdout. If the configured backend is missing or misconfigured, curlew warns and skips analysis — it never blocks inspection or execution.
 
-## Configuration file
-
-Instead of exporting env vars in your shell rc, you can persist settings in a TOML config file:
+## Setup
 
 ```bash
-curlew --init-config   # writes ~/.config/curlew/config.toml
+curlew setup
 ```
+
+`curlew setup` writes a config template and offers to install the shell hook into your rc file (it detects zsh or bash from `$SHELL`). It's idempotent — safe to run again; it won't duplicate the hook or overwrite an existing config.
+
+## Configuration file
+
+Instead of exporting env vars in your shell rc, you can persist settings in a TOML config file. `curlew setup` writes a commented template to `~/.config/curlew/config.toml`:
 
 ```toml
 ai = "ollama"
@@ -101,7 +105,7 @@ Precedence: CLI flags > env vars > config file > built-in defaults.
 
 ## Shell hook (transparent interception)
 
-Instead of remembering to type `curlew` every time, you can install a shell hook that automatically intercepts `curl ... | bash` commands:
+Instead of remembering to type `curlew` every time, you can install a shell hook that automatically intercepts `curl ... | bash` commands. The easiest way is `curlew setup`, which detects your shell and installs it for you. To do it manually:
 
 ```bash
 # zsh (add to ~/.zshrc)
