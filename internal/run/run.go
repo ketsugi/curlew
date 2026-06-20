@@ -104,6 +104,9 @@ func Execute(opts Options) error {
 		suggestAnalyze = true
 	}
 
+	// --- Static analysis (structural, always-on, dependency-free) ---
+	reportStaticAnalysis(data)
+
 	// --- Step 2: Visual inspection ---
 	yes, err := confirm("\033[1;33mOpen script in less for inspection? [Y/n]\033[0m ", suggestInspect)
 	if err != nil {
