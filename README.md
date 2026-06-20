@@ -49,9 +49,12 @@ curlew https://example.com/install.sh
 curlew will:
 
 1. Download the script and verify it's actually a text-based script (not a binary)
-2. Show the line count and offer to open it in `less` for inspection
-3. Offer AI-powered analysis via [Claude](https://docs.anthropic.com/en/docs/claude-code) by default, or any backend you configure (auto-suggested for scripts over 20 lines)
-4. Ask for explicit confirmation before executing
+2. Run a fast structural analysis (network calls, file writes, package installs, privilege escalation, persistence, dangerous ops) — deterministic, no dependencies, always on
+3. Show the line count and offer to open it in `less` for inspection
+4. Offer AI-powered analysis via [Claude](https://docs.anthropic.com/en/docs/claude-code) by default, or any backend you configure (auto-suggested for scripts over 20 lines)
+5. Ask for explicit confirmation before executing
+
+The structural analysis is the deterministic floor — it tells you literally what's in the script regardless of whether you have an AI backend configured. The AI pass adds a semantic judgment on top.
 
 You can also point it at a local file:
 

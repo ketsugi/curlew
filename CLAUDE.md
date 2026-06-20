@@ -19,12 +19,16 @@ All tests run via `go test` — no external test framework required.
 ## Architecture
 
 ```
-cmd/curlew/main.go              — entrypoint (cobra CLI framework)
+cmd/curlew/main.go              — entrypoint (cobra CLI: root + list/setup subcommands)
 internal/hook/                  — shell hook string constants
 internal/validate/              — pure validation functions (MIME, null bytes,
                                   injection patterns, shebang, interpreter)
 internal/ai/                    — AI backend resolution from config
 internal/config/                — TOML config loading (XDG, env override)
+internal/setup/                 — shell detection + idempotent hook install (curlew setup)
+internal/ledger/                — install ledger: storage, lookup, analysis cache
+internal/homograph/             — URL hostname homograph/punycode detection
+internal/staticanalysis/        — AST-based structural analysis (mvdan.cc/sh)
 internal/run/                   — interactive flow orchestration + terminal helpers
 e2e/                            — integration tests (builds + execs the binary)
 ```
@@ -34,7 +38,9 @@ e2e/                            — integration tests (builds + execs the binary
 - `internal/validate` — side-effect-free functions: `MIMEType`, `HasNullBytes`, `HasInjectionPatterns`, `ValidateShebang`, `GetInterpreter`. Unit-testable logic lives here.
 - `internal/ai` — `ResolveCommand` resolves the AI backend from `CURLEW_AI` / `CURLEW_MODEL` / `CURLEW_AI_CMD` env vars into an argv slice.
 - `internal/hook` — `ZshHook()` and `BashHook()` return the shell code emitted by `curlew --hook`.
-- `internal/run` — the interactive flow (download → validate → inspect → analyze → confirm → execute) and terminal I/O (single-keypress confirm, width detection).
+- `internal/staticanalysis` — `Analyze([]byte)` walks the `mvdan.cc/sh` AST and returns categorized structural findings (network, file writes, package installs, privilege escalation, persistence, dangerous ops, obfuscation, URLs). Deterministic and dependency-light; the layer beneath the AI's semantic analysis. Falls back to silent skip on parse failure (non-shell scripts).
+- `internal/ledger` — persistent record of vetted scripts (`Record`/`MarkExecuted`/`Lookup`/`List`), keyed by normalized-URL hash, with a per-entry AI analysis cache invalidated on script-hash change.
+- `internal/run` — the interactive flow (download → validate → change-check → static analysis → inspect → AI analyze → confirm → execute) and terminal I/O.
 
 ### Shell hooks
 
