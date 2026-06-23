@@ -11,15 +11,24 @@ import (
 	"time"
 )
 
+// schemaVersion is the current on-disk metadata format version. Bump it on any
+// breaking change to the metadata.json layout or the directory scheme so older
+// binaries skip entries they can't safely interpret (see readMeta).
+const schemaVersion = 1
+
 // Entry represents a single recorded script.
 type Entry struct {
-	URL      string    `json:"url"`
-	SHA256   string    `json:"sha256"`
-	FirstRun time.Time `json:"first_run"`
-	LastRun  time.Time `json:"last_run"`
-	RunCount int       `json:"run_count"`
-	Executed bool      `json:"executed"`
-	Script   []byte    `json:"-"`
+	// SchemaVersion is the metadata format version (see schemaVersion). 0 means
+	// a legacy entry written before versioning — accepted, since its shape is
+	// identical to v1.
+	SchemaVersion int       `json:"schema_version"`
+	URL           string    `json:"url"`
+	SHA256        string    `json:"sha256"`
+	FirstRun      time.Time `json:"first_run"`
+	LastRun       time.Time `json:"last_run"`
+	RunCount      int       `json:"run_count"`
+	Executed      bool      `json:"executed"`
+	Script        []byte    `json:"-"`
 
 	// dirName is the hash-based directory name (not serialized)
 	dirName string
@@ -225,10 +234,14 @@ func (l *Ledger) readMeta(path string) (*Entry, error) {
 	if err := json.Unmarshal(data, &e); err != nil {
 		return nil, err
 	}
+	if e.SchemaVersion > schemaVersion {
+		return nil, fmt.Errorf("ledger entry %s: unsupported schema version %d (this curlew supports up to %d)", path, e.SchemaVersion, schemaVersion)
+	}
 	return &e, nil
 }
 
 func (l *Ledger) writeMeta(path string, e *Entry) error {
+	e.SchemaVersion = schemaVersion
 	data, err := json.MarshalIndent(e, "", "  ")
 	if err != nil {
 		return err
