@@ -57,6 +57,7 @@ The hooks are shell code emitted by `curlew --hook {zsh,bash}` for `eval` into t
 - The AI backend is pluggable via `ResolveCommand` (in `internal/ai`): `CURLEW_AI` selects a preset (`claude`/`ollama`), `CURLEW_MODEL` picks the model, and `CURLEW_AI_CMD` overrides with a raw command. The resolved command receives the prompt on stdin and writes markdown to stdout. A missing/misconfigured backend warns and skips — it never aborts the inspect/execute flow.
 - Execution honors the script's shebang via `ValidateShebang` (which rejects multi-arg/unsafe shebangs) and `GetInterpreter`, invoking the interpreter directly rather than piping — this keeps it working on `noexec` /tmp.
 - Public AI-config env vars: `CURLEW_AI`, `CURLEW_MODEL`, `CURLEW_AI_CMD`. Test-only env vars (not public API): `CURLEW_SKIP_TTY_CHECK`, `CURLEW_CLAUDE_CMD`.
+- e2e tests exec the built binary via the `run()` helper, which is **hermetic**: it strips host `CURLEW_*`/`HOME`/`XDG_*` and substitutes temp dirs, so the dev's real config (`$XDG_CONFIG_HOME/curlew/config.toml`) and ledger (`$XDG_STATE_HOME/curlew/ledger`) never leak in. A test needing specific config or a shared ledger passes its own `HOME`/`XDG_CONFIG_HOME`/`XDG_STATE_HOME` via `env` (last value wins).
 
 ## Workflow
 
