@@ -402,6 +402,29 @@ func TestNonBashShebangExecuted(t *testing.T) {
 	}
 }
 
+// --- Transport hardening ---
+
+func TestTransport_WarnsOnPlaintextHTTP(t *testing.T) {
+	srv := startTestServer(t, "#!/bin/bash\necho hi\n")
+	out, _ := run(t, "nnn", nil, srv.URL+"/x.sh")
+	if !strings.Contains(out, "plaintext HTTP") {
+		t.Errorf("expected plaintext HTTP warning, got:\n%s", out)
+	}
+}
+
+func TestTransport_SurfacesRedirect(t *testing.T) {
+	dest := startTestServer(t, "#!/bin/bash\necho hi\n")
+	redir := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, dest.URL+"/final.sh", http.StatusFound)
+	}))
+	t.Cleanup(redir.Close)
+
+	out, _ := run(t, "nnn", nil, redir.URL+"/install.sh")
+	if !strings.Contains(out, "Redirected to") {
+		t.Errorf("expected redirect to be surfaced, got:\n%s", out)
+	}
+}
+
 // --- Ledger ---
 
 func TestList_EmptyLedger(t *testing.T) {
