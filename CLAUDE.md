@@ -65,4 +65,4 @@ The hooks are shell code emitted by `curlew --hook {zsh,bash}` for `eval` into t
 
 - Direct pushes to `main` are blocked; all changes go through a PR, one branch per change. CI must be green to merge.
 - Architecture decisions are recorded in `docs/decisions/` (ADRs). ADR-008 decided the Go rewrite; check the ADRs before re-litigating a settled design question.
-- Releasing: bump `version` in `cmd/curlew/main.go`, commit, tag `vX.Y.Z`, push with `--tags`. The release workflow attaches the binary and a SHA-256 checksum.
+- Releasing is automated by a version bump: change `version` in `cmd/curlew/main.go` and merge to `main` (via PR, like any change). The `tag-release` workflow detects the changed version and pushes `vX.Y.Z`; that tag triggers the `release` workflow (cross-platform binaries + `checksums.sha256` + GitHub release notes) and dispatches a Homebrew tap formula bump. Do not tag manually — the bump is the trigger.
