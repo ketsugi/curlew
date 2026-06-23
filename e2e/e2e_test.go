@@ -402,6 +402,25 @@ func TestNonBashShebangExecuted(t *testing.T) {
 	}
 }
 
+// TestEnvSShebangExecuted locks the env -S round-trip: ValidateShebang accepts
+// "env -S bash", GetInterpreter splits it to ["/usr/bin/env","-S","bash"], and
+// run execs `env -S bash <file>` — which must run bash on the script. The
+// safety check and the exec form live in separate functions, so this guards the
+// whole path against a future change to either.
+func TestEnvSShebangExecuted(t *testing.T) {
+	dir := t.TempDir()
+	script := writeScript(t, dir, "hello.sh", "#!/usr/bin/env -S bash\necho ENV_S_EXECUTED\n")
+
+	out, code := run(t, "nny", nil, script)
+
+	if code != 0 {
+		t.Errorf("expected exit 0, got %d\noutput:\n%s", code, out)
+	}
+	if !strings.Contains(out, "ENV_S_EXECUTED") {
+		t.Errorf("expected script output via env -S bash, got:\n%s", out)
+	}
+}
+
 // --- Transport hardening ---
 
 func TestTransport_WarnsOnPlaintextHTTP(t *testing.T) {
