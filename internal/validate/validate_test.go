@@ -210,6 +210,16 @@ func TestValidateShebang_AcceptKnownSingleToken(t *testing.T) {
 	}
 }
 
+func TestValidateShebang_BareShebang(t *testing.T) {
+	// A bare "#!" (no interpreter token) is allowed; GetInterpreter falls back
+	// to bash.
+	for _, line := range []string{"#!", "#!   ", "#!\t"} {
+		if err := ValidateShebang(line); err != nil {
+			t.Errorf("%q: expected nil for bare shebang, got %v", line, err)
+		}
+	}
+}
+
 func TestValidateShebang_RejectPerlDashE(t *testing.T) {
 	err := ValidateShebang("#!/usr/bin/perl -e")
 	if err == nil {
