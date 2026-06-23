@@ -277,6 +277,78 @@ func TestGetScript_NoScript(t *testing.T) {
 	}
 }
 
+// --- Schema versioning ---
+
+func TestRecord_StampsSchemaVersion(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := New(dir)
+
+	l.Record(Entry{URL: "https://example.com/x.sh", SHA256: "abc"})
+
+	e, err := l.Lookup("https://example.com/x.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.SchemaVersion != schemaVersion {
+		t.Errorf("expected schema_version %d, got %d", schemaVersion, e.SchemaVersion)
+	}
+}
+
+func TestReadMeta_SkipsNewerSchemaVersion(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := New(dir)
+
+	// Hand-write an entry claiming a future schema version. A binary that only
+	// understands the current version must not misparse it.
+	url := "https://example.com/future.sh"
+	entryDir := filepath.Join(dir, urlHash(url))
+	if err := os.MkdirAll(entryDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	meta := `{"schema_version": 999, "url": "https://example.com/future.sh", "sha256": "z"}`
+	if err := os.WriteFile(filepath.Join(entryDir, "metadata.json"), []byte(meta), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := l.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected newer-version entry to be skipped, got %d entries", len(entries))
+	}
+
+	e, err := l.Lookup(url)
+	if e != nil {
+		t.Errorf("expected nil entry for newer schema version, got %+v (err=%v)", e, err)
+	}
+}
+
+func TestReadMeta_AcceptsLegacyUnversioned(t *testing.T) {
+	dir := t.TempDir()
+	l, _ := New(dir)
+
+	// A pre-versioning entry has no schema_version field (defaults to 0).
+	// Its shape is identical to the current format, so it must still load.
+	url := "https://example.com/legacy.sh"
+	entryDir := filepath.Join(dir, urlHash(url))
+	if err := os.MkdirAll(entryDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	meta := `{"url": "https://example.com/legacy.sh", "sha256": "abc"}`
+	if err := os.WriteFile(filepath.Join(entryDir, "metadata.json"), []byte(meta), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	e, err := l.Lookup(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e == nil || e.SHA256 != "abc" {
+		t.Errorf("expected legacy entry to load, got %+v", e)
+	}
+}
+
 // --- Analysis cache ---
 
 func TestSaveAnalysis_StoresContent(t *testing.T) {
