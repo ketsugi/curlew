@@ -303,7 +303,7 @@ func TestDangerousShebangRejected(t *testing.T) {
 	if code == 0 {
 		t.Error("expected non-zero exit for dangerous shebang")
 	}
-	if !strings.Contains(out, "Refusing") {
+	if !strings.Contains(out, "refusing") {
 		t.Errorf("expected refusal message, got:\n%s", out)
 	}
 }
@@ -320,7 +320,7 @@ func TestBinaryFileRejected(t *testing.T) {
 	if code == 0 {
 		t.Error("expected non-zero exit for binary")
 	}
-	if !strings.Contains(out, "Not a text-based script") && !strings.Contains(out, "null bytes") {
+	if !strings.Contains(out, "not a text-based script") && !strings.Contains(out, "null bytes") {
 		t.Errorf("expected binary rejection, got:\n%s", out)
 	}
 }
@@ -734,7 +734,7 @@ func TestNonExistentFileRejected(t *testing.T) {
 	if code == 0 {
 		t.Error("expected non-zero exit")
 	}
-	if !strings.Contains(out, "Not a valid URL or local file") {
+	if !strings.Contains(out, "not a valid URL or local file") {
 		t.Errorf("expected invalid input error, got:\n%s", out)
 	}
 }
@@ -745,7 +745,7 @@ func TestInvalidURLRejected(t *testing.T) {
 	if code == 0 {
 		t.Error("expected non-zero exit")
 	}
-	if !strings.Contains(out, "Not a valid URL or local file") {
+	if !strings.Contains(out, "not a valid URL or local file") {
 		t.Errorf("expected invalid input error, got:\n%s", out)
 	}
 }

@@ -120,7 +120,7 @@ func ValidateShebang(line string) error {
 		if _, ok := benignFlags[basename]; ok {
 			return nil
 		}
-		return fmt.Errorf("Refusing unsupported shebang interpreter: %s", parts[0])
+		return fmt.Errorf("refusing unsupported shebang interpreter: %s", parts[0])
 	}
 
 	switch basename {
@@ -130,10 +130,10 @@ func ValidateShebang(line string) error {
 			args = args[1:]
 		}
 		if len(args) < 1 {
-			return fmt.Errorf("Refusing degenerate env shebang: %s", interpStr)
+			return fmt.Errorf("refusing degenerate env shebang: %s", interpStr)
 		}
 		if len(args) > 1 {
-			return fmt.Errorf("Refusing complex env shebang: %s", interpStr)
+			return fmt.Errorf("refusing complex env shebang: %s", interpStr)
 		}
 		return nil
 
@@ -143,12 +143,12 @@ func ValidateShebang(line string) error {
 			if benignFlags[basename][flag] {
 				return nil
 			}
-			return fmt.Errorf("Refusing shebang flag: %s", flag)
+			return fmt.Errorf("refusing shebang flag: %s", flag)
 		}
-		return fmt.Errorf("Refusing multi-arg shebang: %s", interpStr)
+		return fmt.Errorf("refusing multi-arg shebang: %s", interpStr)
 
 	default:
-		return fmt.Errorf("Refusing multi-arg shebang: %s", interpStr)
+		return fmt.Errorf("refusing multi-arg shebang: %s", interpStr)
 	}
 }
 

@@ -61,7 +61,7 @@ func Execute(opts Options) error {
 	// --- Step 1: Validate ---
 	mime, err := validate.MIMEType(tmpfile)
 	if err != nil {
-		return fmt.Errorf("Not a text-based script (detected: %s). Refusing to proceed.", mime)
+		return fmt.Errorf("not a text-based script (detected: %s); refusing to proceed", mime)
 	}
 	info("File type: %s", mime)
 
@@ -70,7 +70,7 @@ func Execute(opts Options) error {
 		return err
 	}
 	if hasNull {
-		return fmt.Errorf("File contains null bytes — likely a binary. Refusing to proceed.")
+		return fmt.Errorf("file contains null bytes — likely a binary; refusing to proceed")
 	}
 
 	lineCount, err := countLines(tmpfile)

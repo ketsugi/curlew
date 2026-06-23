@@ -116,8 +116,8 @@ func TestFetch_HTTPNon200(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for HTTP 404")
 	}
-	if !strings.Contains(err.Error(), "Failed to download") {
-		t.Errorf("expected 'Failed to download', got %v", err)
+	if !strings.Contains(err.Error(), "failed to download") {
+		t.Errorf("expected 'failed to download', got %v", err)
 	}
 }
 
@@ -183,8 +183,8 @@ func TestFetch_UnsupportedScheme(t *testing.T) {
 		if err == nil {
 			t.Fatalf("%s: expected error for unsupported scheme", scheme)
 		}
-		if !strings.Contains(err.Error(), "Not a valid URL or local file") {
-			t.Errorf("%s: expected 'Not a valid URL or local file', got %v", scheme, err)
+		if !strings.Contains(err.Error(), "not a valid URL or local file") {
+			t.Errorf("%s: expected 'not a valid URL or local file', got %v", scheme, err)
 		}
 	}
 }
