@@ -51,16 +51,8 @@ func fetchInto(target string, dst *os.File) (int64, error) {
 			warn("Downloading over plaintext HTTP — the script can be tampered with in transit: %s", target)
 		}
 		client := &http.Client{
-			Timeout: downloadTimeout,
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				if len(via) >= 10 {
-					return fmt.Errorf("stopped after 10 redirects")
-				}
-				if prev := via[len(via)-1]; isDowngrade(prev.URL, req.URL) {
-					warn("Redirect downgrades HTTPS → HTTP: %s → %s", prev.URL, req.URL)
-				}
-				return nil
-			},
+			Timeout:       downloadTimeout,
+			CheckRedirect: checkRedirect,
 		}
 		resp, err := client.Get(target)
 		if err != nil {
@@ -84,6 +76,19 @@ func fetchInto(target string, dst *os.File) (int64, error) {
 	}
 
 	return 0, fmt.Errorf("Not a valid URL or local file: %s", target)
+}
+
+// checkRedirect is the http.Client redirect policy: cap the redirect chain and
+// warn on an HTTPS→HTTP downgrade. Extracted so the policy is unit-testable
+// without a live TLS server.
+func checkRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return fmt.Errorf("stopped after 10 redirects")
+	}
+	if prev := via[len(via)-1]; isDowngrade(prev.URL, req.URL) {
+		warn("Redirect downgrades HTTPS → HTTP: %s → %s", prev.URL, req.URL)
+	}
+	return nil
 }
 
 // isDowngrade reports whether a redirect from -> to drops HTTPS for plaintext

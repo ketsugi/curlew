@@ -31,6 +31,36 @@ func TestIsDowngrade(t *testing.T) {
 	}
 }
 
+func req(rawurl string) *http.Request {
+	u, _ := url.Parse(rawurl)
+	return &http.Request{URL: u}
+}
+
+func TestCheckRedirect_AllowsNormalRedirect(t *testing.T) {
+	via := []*http.Request{req("https://a.com/x")}
+	if err := checkRedirect(req("https://b.com/x"), via); err != nil {
+		t.Errorf("expected nil for a normal redirect, got %v", err)
+	}
+}
+
+func TestCheckRedirect_AllowsDowngradeButWarns(t *testing.T) {
+	// A downgrade is surfaced via a warning but not blocked.
+	via := []*http.Request{req("https://a.com/x")}
+	if err := checkRedirect(req("http://a.com/x"), via); err != nil {
+		t.Errorf("downgrade should not be blocked, got %v", err)
+	}
+}
+
+func TestCheckRedirect_StopsAfterTenRedirects(t *testing.T) {
+	via := make([]*http.Request, 10)
+	for i := range via {
+		via[i] = req("http://a.com/x")
+	}
+	if err := checkRedirect(req("http://a.com/x"), via); err == nil {
+		t.Error("expected error after 10 redirects")
+	}
+}
+
 // requireNetwork skips the test if we can't bind a local port (e.g. sandbox).
 func requireNetwork(t *testing.T) {
 	t.Helper()
