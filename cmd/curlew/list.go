@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/ketsugi/curlew/internal/config"
@@ -56,17 +59,32 @@ func runList(executedOnly bool) error {
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "URL\tSHA256\tRUNS\tLAST SEEN")
+	// Width for the right-aligned RUNS column: header vs the widest count.
+	runsW := len("RUNS")
 	for _, e := range entries {
-		fmt.Fprintf(w, "%s\t%s\t%d\t%s\n",
+		if d := len(strconv.Itoa(e.RunCount)); d > runsW {
+			runsW = d
+		}
+	}
+
+	// Format plainly through tabwriter, then bold the header line. Feeding ANSI
+	// to tabwriter would throw off its column-width math, so the styling is
+	// applied after the layout is computed.
+	var buf bytes.Buffer
+	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "URL\tSHA256\t%*s\tLAST SEEN\n", runsW, "RUNS")
+	for _, e := range entries {
+		fmt.Fprintf(w, "%s\t%s\t%*d\t%s\n",
 			e.URL,
 			truncate(e.SHA256, 12),
-			e.RunCount,
+			runsW, e.RunCount,
 			e.LastRun.Format("2006-01-02 15:04"),
 		)
 	}
 	w.Flush()
+
+	header, rows, _ := strings.Cut(buf.String(), "\n")
+	fmt.Printf("\033[1m%s\033[0m\n%s", header, rows)
 	return nil
 }
 
