@@ -46,6 +46,6 @@ func ResolveCommand(ai, model, aiCmd, claudeCmd string) ([]string, error) {
 		return []string{"ollama", "run", "--nowordwrap", model}, nil
 
 	default:
-		return nil, fmt.Errorf("Unknown AI backend: %s (supported: claude, ollama; or set ai_cmd)", ai)
+		return nil, fmt.Errorf("unknown AI backend: %s (supported: claude, ollama; or set ai_cmd)", ai)
 	}
 }

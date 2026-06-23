@@ -27,7 +27,7 @@ func fetch(target string, dst *os.File) error {
 		return err
 	}
 	if n == 0 {
-		return fmt.Errorf("File is empty")
+		return fmt.Errorf("file is empty")
 	}
 	return nil
 }
@@ -56,26 +56,26 @@ func fetchInto(target string, dst *os.File) (int64, error) {
 		}
 		resp, err := client.Get(target)
 		if err != nil {
-			return 0, fmt.Errorf("Failed to download: %s", target)
+			return 0, fmt.Errorf("failed to download: %s", target)
 		}
 		defer resp.Body.Close()
 		if final := resp.Request.URL.String(); final != target {
 			info("Redirected to: %s", final)
 		}
 		if resp.StatusCode != 200 {
-			return 0, fmt.Errorf("Failed to download: %s (HTTP %d)", target, resp.StatusCode)
+			return 0, fmt.Errorf("failed to download: %s (HTTP %d)", target, resp.StatusCode)
 		}
 		n, err := io.Copy(dst, io.LimitReader(resp.Body, maxDownloadBytes+1))
 		if err != nil {
 			return 0, err
 		}
 		if n > maxDownloadBytes {
-			return 0, fmt.Errorf("Download exceeds %d bytes — refusing to proceed", maxDownloadBytes)
+			return 0, fmt.Errorf("download exceeds %d bytes — refusing to proceed", maxDownloadBytes)
 		}
 		return n, nil
 	}
 
-	return 0, fmt.Errorf("Not a valid URL or local file: %s", target)
+	return 0, fmt.Errorf("not a valid URL or local file: %s", target)
 }
 
 // checkRedirect is the http.Client redirect policy: cap the redirect chain and

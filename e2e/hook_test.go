@@ -47,7 +47,7 @@ func TestHookUnsupportedShell(t *testing.T) {
 	if code == 0 {
 		t.Error("expected non-zero exit for unsupported shell")
 	}
-	if !strings.Contains(out, "Unsupported shell") {
+	if !strings.Contains(out, "unsupported shell") {
 		t.Errorf("expected unsupported shell error, got:\n%s", out)
 	}
 }
