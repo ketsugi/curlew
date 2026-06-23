@@ -187,6 +187,29 @@ func TestValidateShebang_RejectUnknownInterpreterWithArgs(t *testing.T) {
 	}
 }
 
+func TestValidateShebang_RejectUnknownSingleToken(t *testing.T) {
+	for _, line := range []string{"#!/tmp/evil", "#!/usr/local/bin/lua", "#!/usr/bin/awk"} {
+		if err := ValidateShebang(line); err == nil {
+			t.Errorf("%q: expected rejection of unsupported single-token interpreter", line)
+		}
+	}
+}
+
+func TestValidateShebang_RejectBareEnv(t *testing.T) {
+	// "#!/usr/bin/env" with no interpreter is degenerate.
+	if err := ValidateShebang("#!/usr/bin/env"); err == nil {
+		t.Error("expected rejection of bare env shebang")
+	}
+}
+
+func TestValidateShebang_AcceptKnownSingleToken(t *testing.T) {
+	for _, line := range []string{"#!/usr/bin/python3", "#!/usr/bin/node", "#!/bin/sh", "#!/usr/bin/perl"} {
+		if err := ValidateShebang(line); err != nil {
+			t.Errorf("%q: expected accept, got %v", line, err)
+		}
+	}
+}
+
 func TestValidateShebang_RejectPerlDashE(t *testing.T) {
 	err := ValidateShebang("#!/usr/bin/perl -e")
 	if err == nil {

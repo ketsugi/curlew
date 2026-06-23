@@ -101,13 +101,26 @@ func ValidateShebang(line string) error {
 	interpStr := strings.TrimSpace(line[2:])
 	parts := strings.Fields(interpStr)
 
-	if len(parts) <= 1 {
+	if len(parts) == 0 {
+		// Bare "#!" — no interpreter token; GetInterpreter falls back to bash.
 		return nil
 	}
 
 	basename := parts[0]
 	if idx := strings.LastIndex(basename, "/"); idx >= 0 {
 		basename = basename[idx+1:]
+	}
+
+	if len(parts) == 1 {
+		// Single-token shebang (e.g. "#!/bin/bash"). Constrain the interpreter
+		// to the same allowlist the multi-arg branch enforces (the benignFlags
+		// keys), so "#!/tmp/evil" can't slip an arbitrary executable past the
+		// shebang check. "env" alone is degenerate (no interpreter) and falls
+		// through to rejection.
+		if _, ok := benignFlags[basename]; ok {
+			return nil
+		}
+		return fmt.Errorf("Refusing unsupported shebang interpreter: %s", parts[0])
 	}
 
 	switch basename {
