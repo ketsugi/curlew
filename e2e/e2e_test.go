@@ -61,12 +61,39 @@ func TestMain(m *testing.M) {
 
 // run executes the binary with piped input and returns combined output + exit code.
 // Each invocation writes coverage data to coverDir via GOCOVERDIR.
+//
+// The child environment is hermetic: any host CURLEW_* / HOME / XDG_* vars are
+// stripped and replaced with clean per-invocation temp dirs, so the developer's
+// real curlew config (e.g. ai = "ollama") and ledger can never leak in and make
+// tests pass or fail depending on the machine. Tests that need a specific config
+// or a shared ledger pass their own HOME / XDG_* via env, which wins (Go's exec
+// keeps the last value for a duplicated key).
 func run(t *testing.T, stdin string, env []string, args ...string) (string, int) {
 	t.Helper()
+	iso := t.TempDir()
 	cmd := exec.Command(binary, args...)
 	cmd.Stdin = strings.NewReader(stdin)
-	cmd.Env = append(os.Environ(), "CURLEW_SKIP_TTY_CHECK=1", "GOCOVERDIR="+coverDir)
-	cmd.Env = append(cmd.Env, env...)
+
+	base := make([]string, 0, len(os.Environ())+8)
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "CURLEW_") ||
+			strings.HasPrefix(e, "HOME=") ||
+			strings.HasPrefix(e, "XDG_CONFIG_HOME=") ||
+			strings.HasPrefix(e, "XDG_STATE_HOME=") ||
+			strings.HasPrefix(e, "PAGER=") {
+			continue
+		}
+		base = append(base, e)
+	}
+	base = append(base,
+		"HOME="+iso,
+		"XDG_CONFIG_HOME="+filepath.Join(iso, "config"),
+		"XDG_STATE_HOME="+filepath.Join(iso, "state"),
+		"PAGER=cat", // never invoke an interactive pager (glow -p / inspection)
+		"CURLEW_SKIP_TTY_CHECK=1",
+		"GOCOVERDIR="+coverDir,
+	)
+	cmd.Env = append(base, env...)
 	out, err := cmd.CombinedOutput()
 	code := 0
 	if err != nil {
