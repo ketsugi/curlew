@@ -5,11 +5,31 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestIsDowngrade(t *testing.T) {
+	cases := []struct {
+		from, to string
+		want     bool
+	}{
+		{"https://a.com/x", "http://a.com/x", true},
+		{"https://a.com/x", "https://b.com/x", false},
+		{"http://a.com/x", "http://b.com/x", false},
+		{"http://a.com/x", "https://a.com/x", false},
+	}
+	for _, c := range cases {
+		from, _ := url.Parse(c.from)
+		to, _ := url.Parse(c.to)
+		if got := isDowngrade(from, to); got != c.want {
+			t.Errorf("isDowngrade(%s, %s) = %v, want %v", c.from, c.to, got, c.want)
+		}
+	}
+}
 
 // requireNetwork skips the test if we can't bind a local port (e.g. sandbox).
 func requireNetwork(t *testing.T) {
