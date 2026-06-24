@@ -1,6 +1,7 @@
 # curlew
 
 [![codecov](https://codecov.io/gh/ketsugi/curlew/graph/badge.svg?token=76DKXGQBDU)](https://codecov.io/gh/ketsugi/curlew)
+[![Downloads](https://img.shields.io/github/downloads/ketsugi/curlew/latest/total?label=downloads)](https://github.com/ketsugi/curlew/releases/latest)
 
 > Inspect before you execute.
 
