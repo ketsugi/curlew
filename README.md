@@ -1,7 +1,10 @@
 # curlew
 
+[![CI](https://img.shields.io/github/actions/workflow/status/ketsugi/curlew/ci.yml?branch=main&label=ci)](https://github.com/ketsugi/curlew/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/ketsugi/curlew/graph/badge.svg?token=76DKXGQBDU)](https://codecov.io/gh/ketsugi/curlew)
+[![Release](https://img.shields.io/github/v/release/ketsugi/curlew)](https://github.com/ketsugi/curlew/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/ketsugi/curlew/latest/total?label=downloads)](https://github.com/ketsugi/curlew/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/ketsugi/curlew)](LICENSE)
 
 > Inspect before you execute.
 
